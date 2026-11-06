@@ -30,7 +30,10 @@ I ruoli predefiniti sono in `agents.json` (nome, colore, modello, ruolo):
   compagno finisce un lavoro (al massimo 3 volte per ogni tuo messaggio), lo ispeziona con
   measure / inspect_visual / walk_test e manda all'autore le correzioni puntuali.
 
-Gli agenti restano dove lavorano e ti raggiungono solo quando ti allontani più di ~16 m
+Gli agenti hanno un corpo umano low-poly nel loro colore: prima di costruire o modificare
+qualcosa camminano fin lì (o volano, se il punto è in alto) e lo indicano mentre ci lavorano;
+quando ti parlano ti raggiungono e muovono la bocca, e lo stesso fanno con il compagno a cui
+parlano. Gli agenti restano dove lavorano e ti raggiungono solo quando ti allontani più di ~16 m
 (`/segui` per disattivarlo). Durante ogni foto tutti i robottini vengono nascosti per un istante.
 
 In gioco:

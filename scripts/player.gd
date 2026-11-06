@@ -168,7 +168,15 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector3.ZERO
 	_update_camera(delta, sprint)
 	_update_aim()
-	avatar.animate(delta, self)
+	avatar.animate(delta, {
+		"speed": Vector2(velocity.x, velocity.z).length(),
+		"vy": velocity.y,
+		"on_floor": is_on_floor(),
+		"flying": flying,
+		"building": building,
+		"pitch": head.rotation.x,
+		"walk_speed": WALK_SPEED,
+	})
 
 
 func _update_camera(delta: float, sprint: bool) -> void:

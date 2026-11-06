@@ -452,7 +452,33 @@ func _walk_test(input: Dictionary) -> Dictionary:
 
 # ---------------------------------------------------------------- tools
 
+## Where the agent should go before running a tool that changes or checks the world.
+func _site_point(tname: String, input: Dictionary):
+	match tname:
+		"spawn_primitive", "spawn_asset", "run_script", "spawn_blueprint":
+			if input.has("position"):
+				return World.vec3(input["position"])
+		"walk_test":
+			if input.has("from"):
+				return World.vec3(input["from"])
+		"modify_object", "attach_script", "edit_script", "measure", "delete_object":
+			var id := str(input.get("id", ""))
+			if id == "" and input.get("ids") is Array and not input["ids"].is_empty():
+				id = str(input["ids"][0])
+			var n = World._get_entity(id)
+			if n != null:
+				var box: AABB = World.world_aabb(n)
+				var c := box.get_center()
+				return Vector3(c.x, box.position.y + minf(box.size.y, 1.2), c.z)
+	return null
+
+
 func _exec_tool(tname: String, input: Dictionary) -> Dictionary:
+	var site = _site_point(tname, input)
+	if site != null:
+		_set_status("va al lavoro...")
+		await body.go_work(site)
+		_set_status("lavora...")
 	match tname:
 		"say":
 			var t := str(input.get("text", ""))
@@ -461,6 +487,16 @@ func _exec_tool(tname: String, input: Dictionary) -> Dictionary:
 				to = ""
 			if to != "" and to.to_lower() != "tutti" and team.find_brain(to) == null:
 				return {"ok": false, "text": "Nessun agente si chiama '%s'. Squadra: %s" % [to, team.names_list()]}
+			# walk up to whoever it talks to, then speak
+			if to == "" and World.player:
+				await body.approach(World.player)
+			elif to != "" and to.to_lower() != "tutti":
+				var mate = team.find_brain(to)
+				if mate != null and mate != self:
+					await body.approach(mate.body)
+			if not is_inside_tree():
+				return {"ok": false, "text": "interrotto"}
+			_set_status("")
 			body.say(t if to == "" else "→ %s: %s" % [to, t])
 			said.emit(self, to, t)
 			return {"ok": true, "text": "Messaggio inviato" + (" a " + to if to != "" else " al giocatore") + "."}
@@ -550,7 +586,7 @@ const TOOLS := [
 	},
 	{
 		"name": "move_to",
-		"description": "Glide your robot body to a point [x,y,z] (passes through objects). Purely social/visual: you can build anywhere from anywhere.",
+		"description": "Walk your body to a point [x,y,z] (it flies if the point is high; passes through objects). Mostly social: building tools already walk you to the work spot.",
 		"input_schema": {"type": "object", "properties": {"position": V3}, "required": ["position"]},
 	},
 	{
@@ -710,7 +746,7 @@ const TOOLS := [
 	},
 	{
 		"name": "take_photo",
-		"description": "Take a photo of the world and look at it (the image comes back to you). view=\"self\" (default): your robot flies to `position` and shoots toward `look_at`; defaults: look_at = what the player is aiming at, position = where you are. Pick a vantage point a few meters back and up from the subject. view=\"player\": exactly what the player sees right now.",
+		"description": "Take a photo of the world and look at it (the image comes back to you). view=\"self\" (default): your body flies to `position` and shoots toward `look_at`; defaults: look_at = what the player is aiming at, position = where you are. Pick a vantage point a few meters back and up from the subject. view=\"player\": exactly what the player sees right now.",
 		"input_schema": {
 			"type": "object",
 			"properties": {
@@ -741,7 +777,7 @@ TEAMWORK
 - Agent-to-agent turns are limited between two player messages: delegate clearly and concretely in one message (what, where, which object ids), no small talk, no thanks or acknowledgements just to be polite.
 - Stick to your role. If a request fits a teammate better, delegate it.
 - If the Critico sends you feedback about your work, fix the concrete issues it lists (briefly, no discussion), unless the player said otherwise.
-- By default your robot stays where it is and flies back near the player only when they get far away (so they can see the team); move_to and photos take you where you work. Don't redo or delete teammates' work unless asked; improve it or ask them.
+- Your body is a human in your color. It walks to where you build before each change (the player watches you work), comes to the player when you talk to them (or to the teammate you talk to), and flies to high spots and photo points. When idle it stays put and catches up only when the player gets far away. Don't redo or delete teammates' work unless asked; improve it or ask them.
 - The shared board (update_board) has one section per agent. Before building, read it and claim the area you're working in, so you don't overlap.
 
 LANGUAGE AND VOICE
@@ -751,7 +787,7 @@ LANGUAGE AND VOICE
 
 THE WORLD
 - Units are meters, Y is up. The ground is a dark grid plane at y=0, solid from -200 to 200 on X and Z (a line every 1 m, a brighter one every 10 m). Spawn area is around the origin.
-- The player is ~1.8 m tall, walks (4.8 m/s, sprints 8), climbs steps up to 0.4 m without jumping, jumps about 1.25 m, and can fly. Your body is a floating robot in your color; move_to is only for presence (moving near what you're working on is nice for the player to watch), you can build anywhere from anywhere.
+- The player is ~1.8 m tall, walks (4.8 m/s, sprints 8), climbs steps up to 0.4 m without jumping, jumps about 1.25 m, and can fly. Your body is a human in your color.
 - Each user message ends with a WORLD STATE: player position, facing direction and what they are aiming at, the agents' positions, the objects (nearest to the player first, with their author), the shared board, and recent errors/prints from scripts.
 - "Here", "this", "there" usually mean what the player is aiming at, or the area in front of them (player position + facing * 4-6 m on the XZ plane).
 - The player has a visible low-poly body (blue shirt, "Giocatore" label) in your photos; the world state says what they are doing (fermo, cammina, corre, salta, vola, costruisce).
@@ -773,7 +809,7 @@ GDSCRIPT RULES (Godot 4.6, GDScript 2.0 syntax)
 - attach_script: start with `extends Node`, then `@onready var obj: Node3D = get_parent()`.
 - Useful classes: MeshInstance3D with BoxMesh, SphereMesh, CylinderMesh, CapsuleMesh, TorusMesh, PrismMesh, PlaneMesh, QuadMesh, TextMesh; StandardMaterial3D (albedo_color, metallic, roughness, emission_enabled, emission, emission_energy_multiplier, transparency); SurfaceTool / ArrayMesh for custom geometry; MultiMeshInstance3D for many copies; Label3D for text; OmniLight3D / SpotLight3D; CPUParticles3D; create_tween(); Area3D + body_entered signal for triggers; animate in _process(delta).
 - If the player should collide with or walk on something, add a StaticBody3D child with a CollisionShape3D (BoxShape3D, CylinderShape3D, ...) or make the root a StaticBody3D. Without collision shapes things are ghosts.
-- Globals: World.player (CharacterBody3D; use .global_position), World.agents (Dictionary: agent name -> robot body Node3D).
+- Globals: World.player (CharacterBody3D; use .global_position), World.agents (Dictionary: agent name -> body Node3D).
 - Colors: Color("#rrggbb") or Color(r, g, b). Angles: deg_to_rad(). Only use `:=` when the type can be inferred.
 - Forbidden words (rejected by a safety filter, even in comments): OS, FileAccess, DirAccess, network classes, ProjectSettings, ResourceLoader, ResourceSaver, ClassDB, Engine, Expression, GDScript, Thread, load, preload, quit, set_script, change_scene. There are no asset files: everything is made from code.
 - Performance: stay under ~2000 nodes per script; use MultiMeshInstance3D for hundreds of copies. Never create nodes every frame without a cap and never write unbounded loops: a watchdog deletes runaway scripts.
