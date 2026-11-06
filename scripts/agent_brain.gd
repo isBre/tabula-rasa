@@ -24,6 +24,8 @@ var body   # agent.gd
 var agent_name := "Agente"
 var role := ""
 var model := DEFAULT_MODEL
+var model_for_player := ""   # optional stronger model for turns started by the player
+var current_model := DEFAULT_MODEL
 var color := Color(0.3, 0.9, 1.0)
 var is_lead := false
 var is_custom := false
@@ -43,6 +45,8 @@ var _next_auto := 0.0
 var _auto_streak := 0
 var _agent_budget := AGENT_BUDGET
 var _turn_actions: Array = []
+var _epoch := 0   # bumped by reset_all(): late answers from before a reset are ignored
+var _request_epoch := 0
 var _images_in_request := 0
 
 
@@ -60,7 +64,7 @@ func has_key() -> bool:
 
 
 func to_def() -> Dictionary:
-	return {"name": agent_name, "role": role, "model": model, "color": "#" + color.to_html(false), "lead": is_lead, "reviewer": is_reviewer}
+	return {"name": agent_name, "role": role, "model": model, "model_for_player": model_for_player, "color": "#" + color.to_html(false), "lead": is_lead, "reviewer": is_reviewer}
 
 
 # ---------------------------------------------------------------- events
@@ -95,6 +99,24 @@ func clear_history() -> void:
 	messages.clear()
 
 
+## Forgets everything and drops any request in flight (used by the full reset).
+func reset_all() -> void:
+	_epoch += 1
+	if _http:
+		_http.cancel_request()
+	messages.clear()
+	_pending.clear()
+	_context.clear()
+	_turn_actions.clear()
+	_images_in_request = 0
+	_auto_streak = 0
+	_idle_time = 0.0
+	reset_agent_budget()
+	busy = false
+	_set_status("")
+	body.say("")
+
+
 func _process(delta: float) -> void:
 	if busy or not has_key():
 		return
@@ -121,6 +143,8 @@ func _try_start() -> void:
 		_set_status("fermo: tetto di spesa")
 		return
 	_strip_old_states()
+	var player_turn := _pending.any(func(p): return str(p).begins_with("[Il giocatore ti dice]"))
+	current_model = model_for_player if player_turn and model_for_player != "" else model
 	var text := "\n".join(PackedStringArray(_context + _pending)) + STATE_MARK + World.describe(agent_name)
 	_context.clear()
 	_pending.clear()
@@ -151,7 +175,7 @@ func _send() -> void:
 	if not msgs.is_empty() and msgs[-1]["content"] is Array and not msgs[-1]["content"].is_empty():
 		msgs[-1]["content"][-1]["cache_control"] = {"type": "ephemeral"}
 	var body_data := {
-		"model": model,
+		"model": current_model,
 		"max_tokens": MAX_TOKENS,
 		"system": [{"type": "text", "text": build_system_prompt(), "cache_control": {"type": "ephemeral"}}],
 		"tools": tools,
@@ -162,13 +186,14 @@ func _send() -> void:
 		"x-api-key: " + team.api_key,
 		"anthropic-version: 2023-06-01",
 	])
+	_request_epoch = _epoch
 	var err := _http.request(API_URL, headers, HTTPClient.METHOD_POST, JSON.stringify(body_data))
 	if err != OK:
 		_fail("Impossibile inviare la richiesta (errore %d)." % err)
 
 
 func _on_request_completed(result: int, code: int, _headers: PackedStringArray, raw_body: PackedByteArray) -> void:
-	if not is_inside_tree():
+	if not is_inside_tree() or _request_epoch != _epoch:
 		return
 	var raw := raw_body.get_string_from_utf8()
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
@@ -184,7 +209,7 @@ func _on_request_completed(result: int, code: int, _headers: PackedStringArray, 
 	if not data is Dictionary:
 		_fail("Risposta API non leggibile.")
 		return
-	team.add_usage(self, model, data.get("usage", {}), _images_in_request)
+	team.add_usage(self, current_model, data.get("usage", {}), _images_in_request)
 	_images_in_request = 0
 	var content: Array = clean_content(data.get("content", []))
 	if content.is_empty():

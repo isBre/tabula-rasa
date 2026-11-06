@@ -203,6 +203,7 @@ const HELP_TEXT := """Comandi:
 /ora H · /ciclo minuti (0 = fermo) · /terreno griglia|prato|sabbia|neve|pietra|terra · /nebbia 0-1
 /costi · /budget dollari · spesa stimata e tetto
 /segui · gli agenti ti raggiungono on/off   /ui 1.2 · dimensione dell'interfaccia
+/azzera · reset totale (mondo, memoria degli agenti, lavagna, cronologia)
 /reset · svuota il mondo   /auto · autonomia on/off   /clear · gli agenti dimenticano la conversazione
 Tasti: B modalità costruzione · P autonomia · X elimina mirato · F volo"""
 
@@ -262,6 +263,8 @@ func _run_command(text: String) -> void:
 			for bp in World.list_blueprints():
 				names.append("%s%s" % [bp.name, (" (" + bp.description + ")") if bp.description != "" else ""])
 			ui.add_chat("Sistema", "Blueprint: " + (", ".join(names) if not names.is_empty() else "nessuno. Mira un oggetto e usa /blueprint nome descrizione"))
+		"/azzera":
+			full_reset()
 		"/reset":
 			World.reset_world()
 			history.commit("giocatore", "mondo svuotato")
@@ -281,7 +284,8 @@ func _run_command(text: String) -> void:
 			ui.add_chat("Sistema", "Gli agenti hanno dimenticato la conversazione (il mondo e la lavagna restano).")
 		"/agenti":
 			for b in team.brains:
-				ui.add_chat(b.agent_name, "%s[%s] %s" % ["(lead) " if b.is_lead else "", b.model, b.role])
+				var models: String = b.model if b.model_for_player == "" else "%s, quando gli scrivi tu %s" % [b.model, b.model_for_player]
+				ui.add_chat(b.agent_name, "%s[%s] %s" % ["(lead) " if b.is_lead else "", models, b.role])
 		"/nuovo":
 			_create_agent(arg)
 		"/rimuovi":
@@ -333,6 +337,27 @@ func _on_run_code(code: String) -> void:
 		history.commit("giocatore", "console: " + str(r.text).get_slice("\n", 0))
 		ui.add_chat("Sistema", "Hai eseguito il tuo codice: " + str(r.text).get_slice("\n", 0))
 		team.broadcast_context("[Il giocatore ha eseguito codice dalla sua console. Risultato: %s]\n```gdscript\n%s\n```" % [r.text, code])
+
+
+## Starts over: empty world, agents with no memory, empty board and history, default
+## atmosphere. The current world is first saved to saves/prima_del_reset.json.
+func full_reset() -> void:
+	if not offline:
+		save_world("prima_del_reset", false)
+	team.reset_all()
+	World.reset_world()
+	env.set_values({"time_of_day": 10.5, "cycle_minutes": 0.0, "fog": 0.15, "ground": "prato"})
+	player.global_position = Vector3(0, 0.1, 6)
+	player.rotation = Vector3.ZERO
+	player.velocity = Vector3.ZERO
+	history.reset("reset totale")
+	ui.chat_log.clear()
+	ui.add_chat("Sistema", "Reset totale: mondo vuoto e agenti senza memoria. Il mondo di prima è in saves/prima_del_reset.json (/carica prima_del_reset).")
+	if not offline:
+		save_world(AUTOSAVE, false)
+	var l = team.lead()
+	if l and team.api_key != "":
+		l.queue_event("[Il giocatore ha appena azzerato tutto: il mondo è completamente vuoto e nessuno di voi ricorda niente. Salutalo con say, presenta la squadra in due frasi e chiedigli cosa vuole costruire. Non costruire ancora niente.]")
 
 
 # ---------------------------------------------------------------- save / load

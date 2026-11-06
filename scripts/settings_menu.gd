@@ -7,6 +7,7 @@ var main   # main.gd
 var _built := false
 var _syncing := false
 var _controls := {}
+var _confirm: ConfirmationDialog
 
 
 func _ready() -> void:
@@ -115,9 +116,19 @@ func _build() -> void:
 	_button(buttons, "Riprendi", close)
 	_button(buttons, "Salva mondo", func(): main.save_world("mondo", true))
 	_button(buttons, "Annulla modifica", func(): main._undo())
+	_button(buttons, "Reset totale", func(): _confirm.popup_centered())
 	_button(buttons, "Esci", func():
 		main.save_world(main.AUTOSAVE, false)
 		get_tree().quit())
+	_confirm = ConfirmationDialog.new()
+	_confirm.title = "Reset totale"
+	_confirm.dialog_text = "Svuotare il mondo e cancellare la memoria degli agenti, la lavagna e la cronologia?\nIl mondo attuale verrà salvato in saves/prima_del_reset.json."
+	_confirm.ok_button_text = "Azzera tutto"
+	_confirm.cancel_button_text = "Annulla"
+	_confirm.confirmed.connect(func():
+		main.full_reset()
+		close())
+	add_child(_confirm)
 	var hint := Label.new()
 	hint.text = "Esc per tornare al gioco · /aiuto in chat per tutti i comandi"
 	hint.add_theme_font_size_override("font_size", 12)

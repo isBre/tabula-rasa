@@ -21,7 +21,8 @@ compilato a runtime. Tu puoi muoverti, parlargli e scrivere codice nella tua con
 ## La squadra
 
 I ruoli predefiniti sono in `agents.json` (nome, colore, modello, ruolo):
-- **Architetto** (lead): strutture, layout, piano e deleghe;
+- **Architetto** (lead): strutture, layout, piano e deleghe. Usa Haiku, ma passa a Sonnet
+  (`model_for_player` in `agents.json`) nei turni in cui gli scrivi tu;
 - **Paesaggista**: natura a grande scala (terreno, foreste, fiumi, rocce);
 - **Decoratore**: dettagli a scala umana (arredi, luci, insegne, fiori);
 - **Ingegnere**: meccanismi, animazioni, fisica, minigiochi;
@@ -164,7 +165,7 @@ o in `scripts/agent_brain.gd`.
 | Tab | console GDScript (Ctrl/Cmd+Invio esegue) |
 | X | elimina l'oggetto nel mirino |
 | P | autonomia degli agenti on/off |
-| Esc | menu (impostazioni, salva, annulla, esci); chiude i pannelli aperti |
+| Esc | menu (impostazioni, salva, annulla, reset totale, esci); chiude i pannelli aperti |
 
 In chat: `/aiuto` mostra tutti i comandi; `/reset` svuota il mondo, `/auto` autonomia on/off,
 `/clear` fa dimenticare la conversazione agli agenti.

@@ -1,10 +1,11 @@
 {
-	"_info": "Ruoli predefiniti della squadra. Il primo agente con lead=true riceve i messaggi senza @menzione; reviewer=true è il critico che parte da solo quando un compagno finisce un lavoro. Puoi modificare questo file o aggiungere agenti in gioco con /nuovo Nome: descrizione",
+	"_info": "Ruoli predefiniti della squadra. Il primo agente con lead=true riceve i messaggi senza @menzione; model_for_player (facoltativo) è il modello usato solo nei turni in cui il giocatore scrive a quell'agente; reviewer=true è il critico che parte da solo quando un compagno finisce un lavoro. Puoi modificare questo file o aggiungere agenti in gioco con /nuovo Nome: descrizione",
 	"agents": [
 		{
 			"name": "Architetto",
 			"color": "#4fd1ff",
 			"model": "claude-haiku-5-5",
+			"model_for_player": "claude-sonnet-5-5",
 			"lead": true,
 			"role": "Coordinatore della squadra e costruttore di strutture: edifici, strade, ponti, piazze, il layout generale del mondo. Quando il giocatore chiede qualcosa di grande, fai un piano breve sulla lavagna, costruisci la struttura principale e delega il resto: paesaggio al Paesaggista, dettagli e luci al Decoratore, meccanismi all'Ingegnere."
 		},

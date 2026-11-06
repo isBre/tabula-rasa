@@ -107,6 +107,8 @@ func spawn_agent(def: Dictionary, custom: bool) -> String:
 	brain.role = role
 	brain.color = color
 	brain.model = str(def.get("model", BrainScript.DEFAULT_MODEL))
+	brain.current_model = brain.model
+	brain.model_for_player = str(def.get("model_for_player", ""))
 	brain.is_lead = def.get("lead", false) == true
 	brain.is_custom = custom
 	brain.is_reviewer = def.get("reviewer", false) == true
@@ -319,6 +321,13 @@ func set_follow(on: bool) -> void:
 		for b in brains:
 			if not b.busy:
 				b.body.release_after(0.0)
+
+
+func reset_all() -> void:
+	_review_queue.clear()
+	_review_budget = REVIEWS_PER_PLAYER_MESSAGE
+	for b in brains:
+		b.reset_all()
 
 
 func broadcast_context(text: String) -> void:
