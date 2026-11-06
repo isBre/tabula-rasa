@@ -50,6 +50,22 @@ risultato del tool, e tu vedi la foto in un riquadro in basso a destra. Gli agen
 per controllare quello che costruiscono e quando chiedi "guarda" o "che ne pensi?". Le foto
 dei turni precedenti vengono tolte dalla cronologia per contenere i token.
 
+## Libreria di modelli (`Assets`)
+
+In `assets/` ci sono **899 modelli low-poly CC0** da 13 pacchetti di KayKit (Kay Lousberg) e Kenney:
+arredi, case e borgo medievale, alberi e natura, mercato e cibo, dungeon, Halloween, città,
+veicoli, piattaforme (dettagli e crediti in [`assets/CREDITS.md`](assets/CREDITS.md)).
+`assets/catalog.json` contiene id e dimensioni native di ognuno (si rigenera con la scena
+`tools/build_catalog.tscn` dopo aver aggiunto pacchetti).
+
+Gli agenti ricevono nel prompt un indice compatto dei nomi e usano tre tool: `search_assets`
+(più ricerche in una chiamata, anche in italiano per le parole comuni), `preview_assets`
+(fino a 9 modelli in un'immagine 3x3) e `spawn_asset` (con `height` per scalarli all'altezza
+voluta, perché le scale native cambiano molto tra pacchetti). Negli script:
+`add_child(Assets.instance("kaykit_medieval/building_tavern_red", true))`.
+
+![Angolo di villaggio costruito dall'Architetto con la libreria](docs/screenshots/07_villaggio_libreria.jpg)
+
 ## Kit di forme low-poly (`Shapes`)
 
 Autoload `scripts/shapes.gd`, usabile dagli script degli agenti e dalla tua console. Ogni

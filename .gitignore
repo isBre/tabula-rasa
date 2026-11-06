@@ -11,3 +11,4 @@ saves/
 logs/
 tests/*_output.txt
 tests/*.jpg
+tools/*_output.txt

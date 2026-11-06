@@ -12,6 +12,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 
 World="*res://scripts/world.gd"
 Shapes="*res://scripts/shapes.gd"
+Assets="*res://scripts/assets.gd"
 
 [debug]
 

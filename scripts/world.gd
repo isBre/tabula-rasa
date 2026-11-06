@@ -212,6 +212,34 @@ func spawn_primitive(args: Dictionary, author: String, forced_id := "") -> Dicti
 	return _ok("Creato %s (%s, %s) in %s" % [id, shape, physics, _v(body.position)])
 
 
+# ---------------------------------------------------------------- library models
+
+func spawn_asset(args: Dictionary, author: String, forced_id := "") -> Dictionary:
+	if entities.size() >= MAX_ENTITIES:
+		return _err("Limite di %d oggetti raggiunto." % MAX_ENTITIES)
+	var asset_id := str(args.get("asset", ""))
+	if not Assets.has(asset_id):
+		var hits := Assets.search(asset_id.get_slice("/", 1).replace("_", " ") if "/" in asset_id else asset_id, 5)
+		return _err("Modello '%s' non trovato. Forse: %s" % [asset_id, ", ".join(PackedStringArray(hits.map(func(e): return e.id)))])
+	var solid: bool = args.get("solid", true) != false
+	var node: Node3D = Assets.instance(asset_id, solid)
+	var native: Vector3 = Assets.info(asset_id).get("size", Vector3.ZERO)
+	var s := Vector3.ONE
+	if args.has("height") and native.y > 0.001:
+		s = Vector3.ONE * clampf(float(args["height"]) / native.y, 0.02, 100.0)
+	elif args.has("scale"):
+		var raw = args["scale"]
+		s = Vector3.ONE * float(raw) if (raw is float or raw is int) else _size(raw, Vector3.ONE)
+	node.scale = s
+	node.position = vec3(args.get("position"), Vector3.ZERO)
+	node.rotation_degrees = vec3(args.get("rotation_deg"), Vector3.ZERO)
+	node.set_meta("asset", asset_id)
+	node.set_meta("solid", solid)
+	var id := forced_id if forced_id != "" else _new_id()
+	_register(node, id, "asset", author, str(args.get("name", asset_id.get_slice("/", 1))))
+	return _ok("Creato %s (%s) in %s, dimensioni %s m." % [id, asset_id, _v(node.position), _v(native * s)])
+
+
 func _build_primitive(body: Node3D) -> void:
 	var shape: String = body.get_meta("shape")
 	var size: Vector3 = body.get_meta("size")
@@ -318,6 +346,10 @@ func modify_object(args: Dictionary, _author: String) -> Dictionary:
 			rebuild = true
 		if rebuild:
 			_build_primitive(node)
+	elif node.get_meta("kind") == "asset" and args.has("height"):
+		var native: Vector3 = Assets.info(str(node.get_meta("asset"))).get("size", Vector3.ZERO)
+		if native.y > 0.001:
+			node.scale = Vector3.ONE * float(args["height"]) / native.y
 	elif args.has("size") or args.has("color") or args.has("shape"):
 		notes_out.append("size/color/shape valgono solo per le primitive: per oggetti script usa scale o riscrivi lo script.")
 	var txt := "Modificato %s." % id
@@ -606,6 +638,8 @@ func _entity_line(n: Node3D) -> String:
 		s += " shape=%s size=%s color=#%s physics=%s" % [n.get_meta("shape"), _v(n.get_meta("size")), col.to_html(col.a < 0.999), n.get_meta("physics")]
 		if n.get_meta("emissive"):
 			s += " emissive"
+	elif kind == "asset":
+		s += " modello=%s ingombro=%s" % [n.get_meta("asset"), _v(world_aabb(n).size)]
 	elif n.has_meta("code"):
 		s += " script(%d righe)" % (str(n.get_meta("code")).count("\n") + 1)
 	if n.rotation_degrees.length() > 0.01:
@@ -641,6 +675,7 @@ func describe(viewer := "", max_items := 60) -> String:
 		lines.append("... e altri %d oggetti più lontani" % (items.size() - max_items))
 	if environment:
 		lines.append("Ambiente: " + environment.describe())
+	lines.append("Libreria modelli: %d modelli pronti (search_assets per cercarli)" % Assets.catalog.size())
 	var bps := list_blueprints()
 	if not bps.is_empty():
 		var names := PackedStringArray()
@@ -690,6 +725,9 @@ func entity_data(n: Node3D) -> Dictionary:
 		e["color"] = "#" + col.to_html(true)
 		e["emissive"] = n.get_meta("emissive")
 		e["physics"] = n.get_meta("physics")
+	elif n.get_meta("kind") == "asset":
+		e["asset"] = n.get_meta("asset")
+		e["solid"] = n.get_meta("solid", true)
 	else:
 		e["code"] = n.get_meta("code", "")
 	var behs := []
@@ -705,6 +743,10 @@ func spawn_from_data(e: Dictionary, author: String, forced_id := "") -> Dictiona
 	var r: Dictionary
 	if e.get("kind") == "primitive":
 		r = spawn_primitive(e, author, id)
+	elif e.get("kind") == "asset":
+		var args: Dictionary = e.duplicate()
+		args.erase("height")
+		r = spawn_asset(args, author, id)
 	else:
 		r = run_script(e, author, id)
 	if not r.ok:

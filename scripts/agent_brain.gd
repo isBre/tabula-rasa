@@ -15,7 +15,7 @@ const MAX_AUTONOMOUS_TURNS := 3    # free-time turns in a row without new events
 const AGENT_BUDGET := 4            # turns other agents can trigger between two player messages
 const KEEP_MESSAGES := 30
 const STATE_MARK := "\n\n=== STATO DEL MONDO ===\n"
-const MUTATING := ["spawn_primitive", "modify_object", "delete_object", "run_script", "attach_script", "edit_script", "spawn_blueprint", "set_environment", "update_board"]
+const MUTATING := ["spawn_asset", "spawn_primitive", "modify_object", "delete_object", "run_script", "attach_script", "edit_script", "spawn_blueprint", "set_environment", "update_board"]
 
 const AUTONOMY_PROMPT := "[Tempo libero] Nessuno ti ha scritto di recente. Se hai un'idea coerente con il tuo ruolo e con la lavagna, realizza UN piccolo passo e annuncialo con say. Se non c'è niente di utile da fare, rispondi solo con una brevissima frase di testo, senza tool."
 
@@ -139,7 +139,7 @@ func _try_start() -> void:
 
 
 func build_system_prompt() -> String:
-	return SYSTEM_PROMPT.replace("{NAME}", agent_name).replace("{ROLE}", role).replace("{TEAM}", team.describe_team(self)).replace("{LEAD}", team.lead_name())
+	return SYSTEM_PROMPT.replace("{NAME}", agent_name).replace("{ROLE}", role).replace("{TEAM}", team.describe_team(self)).replace("{LEAD}", team.lead_name()).replace("{CATALOG}", Assets.index_text())
 
 
 func _send() -> void:
@@ -438,6 +438,38 @@ func _exec_tool(tname: String, input: Dictionary) -> Dictionary:
 			return World.inspect_object(input)
 		"take_photo":
 			return await _take_photo(input)
+		"search_assets":
+			var queries: Array = []
+			if input.get("queries") is Array:
+				queries = input["queries"]
+			if input.has("query"):
+				queries.append(input["query"])
+			if queries.is_empty():
+				return {"ok": true, "text": "Pacchetti: " + Assets.packs_summary()}
+			var limit := clampi(int(input.get("limit", 12)), 1, 40)
+			var parts := PackedStringArray()
+			for q in queries.slice(0, 8):
+				var hits := Assets.search(str(q), limit)
+				if hits.is_empty():
+					parts.append("'%s': nessun modello (non esiste nella libreria: costruiscilo con Shapes o scegli altro)" % q)
+				else:
+					parts.append("'%s':\n  %s" % [q, "\n  ".join(PackedStringArray(hits.map(func(e): return Assets.describe_entry(e))))])
+			return {"ok": true, "text": "Risultati (dimensioni native L x A x P in metri):\n" + "\n".join(parts)}
+		"preview_assets":
+			var ids: Array = input.get("ids", []) if input.get("ids") is Array else []
+			ids = ids.filter(func(i): return Assets.has(str(i))).slice(0, 9)
+			if ids.is_empty():
+				return {"ok": false, "text": "Nessun id valido: usa gli id restituiti da search_assets."}
+			_set_status("guarda dei modelli...")
+			var sheet: Image = await Assets.preview(ids)
+			if team.ui:
+				team.ui.show_photo(agent_name + " (catalogo)", sheet)
+			var legend := PackedStringArray()
+			for i in ids.size():
+				legend.append("%d: %s" % [i + 1, ids[i]])
+			return {"ok": true, "text": "Anteprima a griglia 3x3, da sinistra a destra e dall'alto in basso: " + ", ".join(legend), "image": Marshalls.raw_to_base64(sheet.save_jpg_to_buffer(0.8))}
+		"spawn_asset":
+			return World.spawn_asset(input, agent_name)
 		"inspect_visual":
 			return await _inspect_visual(input)
 		"measure":
@@ -476,6 +508,33 @@ const TOOLS := [
 		"name": "move_to",
 		"description": "Glide your robot body to a point [x,y,z] (passes through objects). Purely social/visual: you can build anywhere from anywhere.",
 		"input_schema": {"type": "object", "properties": {"position": V3}, "required": ["position"]},
+	},
+	{
+		"name": "search_assets",
+		"description": "Get exact model ids from the library (see MODEL CATALOG in the system prompt for what exists). Pass several queries at once in `queries` (short English keywords, a base name like building_tavern, or pack/name). Returns ids with native size in meters. One call with all your queries, then build.",
+		"input_schema": {"type": "object", "properties": {"queries": {"type": "array", "items": {"type": "string"}}, "limit": {"type": "integer", "description": "results per query, default 12"}}, "required": ["queries"]},
+	},
+	{
+		"name": "preview_assets",
+		"description": "See up to 9 library models rendered in a 3x3 grid image, to choose the right ones before placing them.",
+		"input_schema": {"type": "object", "properties": {"ids": {"type": "array", "items": {"type": "string"}}}, "required": ["ids"]},
+	},
+	{
+		"name": "spawn_asset",
+		"description": "Place a library model as a new object. position = where its origin goes (models stand on their base: y = floor height). Size it with height (target height in meters, uniform scale, preferred) or scale. solid=false for decorations the player can walk through. In scripts you can also do add_child(Assets.instance(id, solid)) to compose many models in one object.",
+		"input_schema": {
+			"type": "object",
+			"properties": {
+				"asset": {"type": "string", "description": "id from search_assets, e.g. kaykit_furniture/chair_A"},
+				"position": V3,
+				"rotation_deg": V3,
+				"height": {"type": "number"},
+				"scale": {"type": "number"},
+				"solid": {"type": "boolean"},
+				"name": {"type": "string"},
+			},
+			"required": ["asset", "position"],
+		},
 	},
 	{
 		"name": "spawn_primitive",
@@ -656,6 +715,10 @@ THE WORLD
 
 HOW TO BUILD
 - The world has a LOW-POLY style: flat-shaded faceted shapes, a warm natural palette, simple readable silhouettes. Keep it coherent.
+- MODEL LIBRARY FIRST for detailed objects: furniture, houses and village buildings, trees, rocks, plants, props, food, vehicles, signs, lamps, barrels, crates, fences, characters' items. They look far better than anything built from primitives. Workflow: search_assets (English keywords) -> preview_assets to pick -> spawn_asset with a realistic height (door ~2.1 m, chair ~0.9, table ~0.75, house 4-7, tree 4-8, lamp post ~3.5). For many models in one place (a furnished room, a market, a forest) write one run_script using add_child(Assets.instance(id, true)) and set position/scale of each, or Shapes.scatter with a factory returning Assets.instance(...).
+- Packs: kaykit_* (soft pastel low-poly: furniture, city, medieval village, restaurant, halloween, dungeon, prototype, adventure props) and kenney_* (city, platformer, racing, fps, arena). Keep one area visually coherent (don't mix every pack in the same spot).
+- Don't over-search: the MODEL CATALOG below already tells you what exists. One search_assets call with all the base names you need gives exact ids, optionally one preview_assets, then BUILD in the same turn.
+- The SHAPES KIT is for what the library doesn't have: custom structures and architecture to measure (arenas, plazas, walls, bridges, stairs, roads), terrain and water.
 - For anything beyond a single block, use run_script with the SHAPES KIT below: one script = one object (a house, a tree grove, a bridge, a fountain), its parts added as children in _ready(). One run_script generating 50 parts is much better than 50 spawn_primitive calls.
 - spawn_primitive / modify_object / delete_object only for quick single blocks (position is the CENTER there, unlike the kit).
 - attach_script to give behavior to an existing object.
@@ -671,6 +734,9 @@ GDSCRIPT RULES (Godot 4.6, GDScript 2.0 syntax)
 - Forbidden words (rejected by a safety filter, even in comments): OS, FileAccess, DirAccess, network classes, ProjectSettings, ResourceLoader, ResourceSaver, ClassDB, Engine, Expression, GDScript, Thread, load, preload, quit, set_script, change_scene. There are no asset files: everything is made from code.
 - Performance: stay under ~2000 nodes per script; use MultiMeshInstance3D for hundreds of copies. Never create nodes every frame without a cap and never write unbounded loops: a watchdog deletes runaway scripts.
 - Compile errors come back in the tool result. Runtime errors and print() output appear in the next WORLD STATE with the object id. When something fails, fix it: delete the broken object and run a corrected version.
+
+MODEL CATALOG (base names per pack; real ids add variants like _A/_B, colors _blue/_red/_green/_yellow or _decorated: get them with search_assets. Native sizes differ a lot between packs: always set height)
+{CATALOG}
 
 SHAPES KIT (global `Shapes`, use it instead of hand-computing geometry)
 Every builder returns a Node3D whose origin is its BOTTOM CENTER: add_child() it, then set position (y = height of what it stands on) and rotation. `mat` = palette name, Color, "#hex" or Material. `solid` (default true) adds collision.
