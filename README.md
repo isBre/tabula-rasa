@@ -4,6 +4,20 @@ Un mondo 3D vuoto, tu e una squadra di agenti AI (Claude). Gli agenti vedono lo 
 del mondo, parlano con te e tra loro, si dividono il lavoro e costruiscono scrivendo GDScript
 compilato a runtime. Tu puoi muoverti, parlargli e scrivere codice nella tua console.
 
+![Il villaggio costruito dalla squadra, con la chat e lo stato degli agenti](docs/screenshots/01_villaggio.jpg)
+
+| Tramonto | Notte |
+|---|---|
+| ![Viale di lampioni al tramonto](docs/screenshots/02_tramonto.jpg) | ![Lo stesso viale di notte](docs/screenshots/03_notte.jpg) |
+| **Cosa vede un agente: ispezione in 4 viste** | **Il giocatore visto da un agente (modalità costruzione)** |
+| ![Ispezione automatica della casetta da 4 angolazioni](docs/screenshots/04_ispezione_agente.jpg) | ![L'avatar del giocatore indica la casetta selezionata](docs/screenshots/05_giocatore_visto_dagli_agenti.jpg) |
+
+<details><summary>Menu impostazioni</summary>
+
+![Menu con interfaccia, controlli, agenti e mondo](docs/screenshots/06_menu.jpg)
+
+</details>
+
 ## La squadra
 
 I ruoli predefiniti sono in `agents.json` (nome, colore, modello, ruolo):
@@ -153,7 +167,7 @@ In chat: `/aiuto` mostra tutti i comandi; `/reset` svuota il mondo, `/auto` auto
 - `scripts/player.gd`, `scripts/agent.gd`, `scripts/ui.gd`, `scripts/main.gd`: giocatore,
   corpo dell'agente, interfaccia e montaggio della scena.
 - `tests/`: `selftest` e `toolstest` provano l'API del mondo senza chiamare Claude; `apitest`,
-  `visiontest` e `reviewtest` usano l'API vera; `shapestest` costruisce una vetrina del kit. Ognuno scrive il risultato in `tests/*_output.txt`.
+  `visiontest` e `reviewtest` usano l'API vera; `shapestest` costruisce una vetrina del kit; `screenshots` rigenera le immagini di questo README in `docs/screenshots/`. Ognuno scrive il risultato in `tests/*_output.txt`.
 
 ## Limiti noti
 
