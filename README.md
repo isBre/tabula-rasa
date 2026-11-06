@@ -48,7 +48,8 @@ una SubViewport che condivide il mondo) scatta una foto 800x450 dal punto scelto
 esattamente quello che vedi tu (`view="player"`). Il JPEG torna all'agente come immagine nel
 risultato del tool, e tu vedi la foto in un riquadro in basso a destra. Gli agenti la usano
 per controllare quello che costruiscono e quando chiedi "guarda" o "che ne pensi?". Le foto
-dei turni precedenti vengono tolte dalla cronologia per contenere i token.
+dei turni precedenti vengono tolte dalla cronologia per contenere i token. Tutte le immagini guardate dagli agenti (foto, ispezioni, anteprime del catalogo) restano
+in `photos/<data>/` con ora, agente e tipo nel nome del file.
 
 ## Libreria di modelli (`Assets`)
 

@@ -211,6 +211,7 @@ func _on_request_completed(result: int, code: int, _headers: PackedStringArray, 
 					_turn_actions.append("%s %s" % [tname, _action_label(tname, input, str(r.text))])
 				if r.has("image"):
 					_images_in_request += 1
+					_save_photo(tname, r["image"])
 				if tname != "say":
 					World.chat_message.emit("Azione", "%s · %s → %s" % [agent_name, tname, str(r.text).get_slice("\n", 0).left(160)])
 				var result_content: Variant = str(r.text)
@@ -330,6 +331,24 @@ func _trim() -> void:
 
 
 # ---------------------------------------------------------------- vision
+
+const PHOTO_DIR := "res://photos/"
+
+
+## Keeps a copy of every image the agent looks at: photos/<date>/<time>_<agent>_<tool>.jpg
+func _save_photo(tool_name: String, b64: String) -> void:
+	if team.ui and team.ui.main and team.ui.main.offline:
+		return  # tests don't fill your photo album
+	var dt := Time.get_datetime_dict_from_system()
+	var dir := ProjectSettings.globalize_path(PHOTO_DIR + "%04d-%02d-%02d" % [dt.year, dt.month, dt.day])
+	DirAccess.make_dir_recursive_absolute(dir)
+	var kind: String = {"take_photo": "foto", "inspect_visual": "ispezione", "preview_assets": "catalogo"}.get(tool_name, tool_name)
+	var path := dir.path_join("%02d%02d%02d_%s_%s.jpg" % [dt.hour, dt.minute, dt.second, agent_name, kind])
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f:
+		f.store_buffer(Marshalls.base64_to_raw(b64))
+		f.close()
+
 
 func _take_photo(input: Dictionary) -> Dictionary:
 	_set_status("scatta una foto...")
