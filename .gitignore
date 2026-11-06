@@ -1,0 +1,13 @@
+# Godot
+.godot/
+*.tmp
+.DS_Store
+
+# secrets: never commit the API key
+api_key.txt
+
+# personal data and outputs
+saves/
+logs/
+tests/*_output.txt
+tests/*.jpg
