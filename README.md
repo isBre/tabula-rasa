@@ -26,6 +26,7 @@ I ruoli predefiniti sono in `agents.json` (nome, colore, modello, ruolo):
 - **Paesaggista**: natura a grande scala (terreno, foreste, fiumi, rocce);
 - **Decoratore**: dettagli a scala umana (arredi, luci, insegne, fiori);
 - **Ingegnere**: meccanismi, animazioni, fisica, minigiochi;
+- **Scultore** (Sonnet): progetta i modelli della libreria nel laboratorio, su richiesta dei compagni;
 - **Critico** (`reviewer: true`): non costruisce. Parte da solo qualche secondo dopo che un
   compagno finisce un lavoro (al massimo 3 volte per ogni tuo messaggio), lo ispeziona con
   measure / inspect_visual / walk_test e manda all'autore le correzioni puntuali.
@@ -55,21 +56,48 @@ per controllare quello che costruiscono e quando chiedi "guarda" o "che ne pensi
 dei turni precedenti vengono tolte dalla cronologia per contenere i token. Tutte le immagini guardate dagli agenti (foto, ispezioni, anteprime del catalogo) restano
 in `photos/<data>/` con ora, agente e tipo nel nome del file.
 
-## Libreria di modelli (`Assets`)
+## Stile
 
-In `assets/` ci sono **899 modelli low-poly CC0** da 13 pacchetti di KayKit (Kay Lousberg) e Kenney:
-arredi, case e borgo medievale, alberi e natura, mercato e cibo, dungeon, Halloween, città,
-veicoli, piattaforme (dettagli e crediti in [`assets/CREDITS.md`](assets/CREDITS.md)).
-`assets/catalog.json` contiene id e dimensioni native di ognuno (si rigenera con la scena
-`tools/build_catalog.tscn` dopo aver aggiunto pacchetti).
+Tutto quello che la squadra crea segue la stessa guida di stile (sezione STYLE del prompt):
+low-poly sfaccettato, forme piene, 2-4 colori per oggetto presi dalla **palette comune**,
+proporzioni reali e dettaglio omogeneo.
 
-Gli agenti ricevono nel prompt un indice compatto dei nomi e usano tre tool: `search_assets`
-(più ricerche in una chiamata, anche in italiano per le parole comuni), `preview_assets`
-(fino a 9 modelli in un'immagine 3x3) e `spawn_asset` (con `height` per scalarli all'altezza
-voluta, perché le scale native cambiano molto tra pacchetti). Negli script:
-`add_child(Assets.instance("kaykit_medieval/building_tavern_red", true))`.
+- La palette è in `palette.json`, condivisa da tutti i mondi, organizzata per gruppi (pietra e
+  muratura, legni, natura, acqua e vetro, metalli, tessuti e superfici, luci) con una descrizione
+  per colore. Gli agenti la estendono con `add_color`, che rifiuta i quasi-doppioni e propone il
+  colore esistente. I nomi si usano come `"mat"` nelle ricette e in `Shapes.material(nome)`.
+- I colori `#rrggbb` restano permessi, ma il laboratorio li segnala. Il rapporto di
+  `design_model` ha una sezione **Stile** con consigli (non blocchi): colori fuori palette con il
+  più vicino, troppi colori, forme troppo lisce, pezzi più sottili di 1 cm, dettaglio eccessivo.
+- Nel menu, la scheda **Stile** mostra la palette a quadratini.
+- Test: `tests/styletest.tscn`.
 
-![Angolo di villaggio costruito dall'Architetto con la libreria](docs/screenshots/07_villaggio_libreria.jpg)
+## Modelli fatti dagli agenti (`Assets`)
+
+Non ci sono modelli già pronti: ogni oggetto (divano, frigorifero, lampione, albero, carretto…)
+lo progetta la squadra. Un modello è una **ricetta JSON** in `models/<nome>.json`: una lista di
+pezzi del kit Shapes (box, cylinder, lathe, extrude, sweep, tube, roof, wall, light…), messi con
+coordinate o ancorati tra loro, con `positions` per le copie e `mirror` per la simmetria.
+
+```json
+{"parts": [
+  {"id": "gamba", "shape": "box", "size": [0.05, 0.45, 0.05], "mat": "legno", "positions": [[0.2, 0, 0.2], [0.2, 0, -0.2]], "mirror": "x"},
+  {"id": "seduta", "shape": "box", "size": [0.5, 0.05, 0.5], "mat": "legno_chiaro", "position": [0, 0.45, 0]},
+  {"id": "schienale", "shape": "box", "size": [0.5, 0.45, 0.05], "mat": "legno", "anchor": {"to": "seduta", "side": "top", "align": "back"}}
+]}
+```
+
+- `design_model` è il **laboratorio**: costruisce la ricetta fuori dal mondo e restituisce 4 viste
+  (fronte, lato, retro 3/4, dall'alto) e un rapporto (misure, ingombro di ogni pezzo, pezzi sospesi,
+  errori). L'agente corregge e riprova finché il modello lo convince.
+- `save_model` lo mette nella libreria; `search_assets`, `preview_assets` e `spawn_asset` (anche
+  con `anchor`) lo usano come qualsiasi modello, e negli script `Assets.instance("nome", true)`.
+  Salvare con lo stesso nome aggiorna anche le copie già nel mondo. `get_model` rilegge una ricetta.
+- Il gioco normalizza ogni modello (origine al centro della base, fronte verso +Z), lo fonde in
+  una mesh per materiale con collisioni, e lo riusa per tutte le copie. Un modello può contenerne
+  altri (`"shape": "model"`).
+- Lo **Scultore** (Sonnet) è l'agente specializzato: gli altri gli chiedono i pezzi che mancano.
+- Test: `tests/modeltest.tscn` (offline) e `tests/sculptortest.tscn` (API vera).
 
 ## Kit di forme low-poly (`Shapes`)
 
@@ -82,6 +110,34 @@ più una palette di materiali (`Shapes.material("legno")`, "pietra", "tetto", "f
 Esempio nella console (Tab): `add_child(Shapes.tree("pine", 5))`.
 
 Tu e il manichino del walk test salite da soli i gradini fino a 40 cm.
+
+## Ancoraggi (piazzare senza coordinate)
+
+Invece di calcolare coordinate, gli agenti dicono *rispetto a cosa* va messo un oggetto e il
+gioco fa la geometria dalle dimensioni e rotazioni reali (`World.place` in `scripts/world.gd`).
+`spawn_asset`, `spawn_primitive`, `run_script` e `spawn_blueprint` accettano `anchor`; il tool
+`place` sposta un oggetto esistente allo stesso modo.
+
+```json
+{"to": "obj_3/camera", "wall": "back"}                    // letto contro la parete di fondo
+{"to": "obj_7", "side": "left", "align": "back"}          // comodino a filo della testiera
+{"to": "obj_3/soggiorno", "wall": ["back", "left"]}       // poltrona nell'angolo
+{"to": "obj_10", "side": "top"}                           // lampada sul tavolo
+{"to": "obj_9", "side": "left", "face": "toward"}         // sedia di lato, girata verso il tavolo
+{"to": "obj_2", "side": "east", "gap": 6}                 // 6 m a est della fontana
+```
+
+- `to`: un id, un nodo con nome dentro uno script (`obj_12/cucina`), la sua N-esima parte
+  (`obj_12/3`), `"player"` o un punto `[x,y,z]`.
+- `side`: `front/back/left/right` sono i lati *dell'oggetto di riferimento* (seguono la sua
+  rotazione), `north/south/east/west` quelli del mondo, poi `top`, `bottom`, `inside`.
+- `wall` (con `inside`): trova la superficie vera della parete con dei raggi; due lati = angolo.
+- `align`, `gap`, `offset` (nel sistema del riferimento), `face`, `snap` per rifinire.
+- Negli script: `World.place(figlio, {"to": altro_figlio, "side": "right"})`.
+
+Il controllo di posizionamento misura le sovrapposizioni lungo l'orientamento dei pezzi, quindi
+gli oggetti ruotati non danno più falsi allarmi. Test: `tests/anchortest.tscn` arreda una stanza
+ruotata di 30° solo con ancoraggi.
 
 ## Osservare e verificare
 
@@ -97,6 +153,14 @@ Tu e il manichino del walk test salite da soli i gradini fino a 40 cm.
 
 Il prompt insegna agli agenti un ciclo di revisione (misura → ispeziona → prova a camminarci →
 correggi, al massimo 2 giri) da fare prima di annunciare qualcosa di non banale.
+
+## Chat
+
+La conversazione con te si vede sempre. In cima alla chat (e nel menu, Impostazioni) scegli cos'altro
+mostrare: **Squadra** (gli agenti che parlano tra loro), **Azioni** (ogni strumento che usano),
+**Pensieri**, **Sistema**. Azioni e Pensieri sono spenti di default: cosa fa ogni agente si vede nel
+pannello in alto. Cambiare filtro nasconde o fa ricomparire anche i messaggi passati; la scelta
+viene ricordata.
 
 ## Modalità costruzione (B)
 
@@ -128,8 +192,20 @@ mondo. Tu usi `/blueprint nome descrizione` (sull'oggetto mirato), `/piazza nome
 
 Ogni risposta dell'API riporta i token usati; il gioco stima la spesa per agente (prezzi in
 `scripts/team.gd`, da verificare sulla pagina ufficiale) e la mostra nell'HUD. `/costi` dà il
-dettaglio, `/budget N` imposta il tetto in dollari (default 2). Quando lo si raggiunge, gli agenti
+dettaglio, `/budget N` o la scheda **Costi** del menu impostano il tetto in dollari (default 2,
+ricordato tra un avvio e l'altro). Quando lo si raggiunge, gli agenti
 si fermano e l'autonomia si spegne.
+
+Nel menu, la scheda **Costi** mostra la spesa della sessione (per agente e per modello, costo
+medio per chiamata, contesto medio, foto), lo storico di tutte le sessioni da `logs/usage.csv`
+(per giorno, agente e modello) e i prezzi usati per le stime. Lì c'è anche l'opzione **Modello
+forte solo per pianificare** (accesa di default): negli agenti con `model_for_player` il modello
+forte fa solo la prima chiamata del turno (capisce, pianifica, delega) e i passi successivi usano
+il modello base. La tabella **In cosa va l'output** divide i token generati per tipo (messaggi a
+te, messaggi tra agenti, pensieri, codice, modelli 3D, lavagna, altri strumenti) e ne mostra il
+peso sulla spesa: è una stima, perché l'API dà solo il totale, ripartito in proporzione alla
+lunghezza di ogni parte della risposta (colonna `output_split` di `logs/usage.csv`).
+Test offline: `tests/coststest.tscn`.
 
 ## Salvataggi
 
@@ -142,6 +218,27 @@ salvataggio automatico la versione precedente viene copiata in `saves/autosave_p
 L'interfaccia si adatta alla densità dello schermo (2x su Retina); `/ui 1.2` la ingrandisce,
 `/ui 0.9` la rimpicciolisce, e la scelta viene ricordata. La memoria della
 conversazione degli agenti non viene salvata: ripartono dal mondo e dalla lavagna.
+
+## Agenti e NPC (Esc > Agenti)
+
+Nel menu, la scheda **Agenti** elenca la squadra. Per ogni agente scegli il **modello** (Haiku,
+Sonnet, Opus, e facoltativamente uno diverso per quando gli scrivi tu) e puoi **nasconderlo**
+(sparisce dal mondo e non lavora finché non lo rimostri). Con **+ Nuovo agente o NPC** ne crei
+altri: nome, ruolo e personalità, colore, modello e tre permessi:
+- *può costruire e modificare il mondo* (senza, è un **NPC**: parla, cammina, osserva, reagisce);
+- *può creare modelli* (laboratorio);
+- *può vedere* (foto e ispezioni, che costano di più).
+
+Gli NPC non volano: camminano sempre a terra. Con **Modifica** si sceglie anche l'**aspetto**
+(carnagione, capelli e colore, pantaloni, cappello, altezza), per tutti gli agenti; la maglia è il
+loro colore. In **Impostazioni** l'autonomia è separata: *Agenti* (piccoli lavori da soli) e *NPC*
+(passeggiano, commentano, salutano); entrambe spente all'avvio. In gioco gli agenti stanno nel
+pannello in alto a destra, gli NPC in quello in alto a sinistra.
+
+I permessi sono veri: l'agente riceve solo i tool consentiti e il prompt glielo dice. Gli agenti
+predefiniti (`agents.json`) non si modificano né si rimuovono; quelli creati da te sì, e vengono
+salvati con il mondo. La scelta del modello dei predefiniti resta su questo computer.
+La scheda **Comandi** elenca tasti e comandi della chat.
 
 ## Avvio
 
@@ -167,7 +264,7 @@ o in `scripts/agent_brain.gd`.
 | Invio | scrivere all'agente |
 | Tab | console GDScript (Ctrl/Cmd+Invio esegue) |
 | X | elimina l'oggetto nel mirino |
-| P | autonomia degli agenti on/off |
+| P | autonomia degli agenti on/off (spenta all'avvio) |
 | Esc | menu (impostazioni, salva, annulla, reset totale, esci); chiude i pannelli aperti |
 
 In chat: `/aiuto` mostra tutti i comandi; `/reset` svuota il mondo, `/auto` autonomia on/off,

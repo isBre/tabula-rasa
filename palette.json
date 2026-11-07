@@ -1,0 +1,211 @@
+{
+	"_info": "Palette condivisa della squadra (tutti i mondi). Gli agenti la estendono con add_color; si può modificare anche a mano.",
+	"colors": {
+		"pietra": {
+			"color": "#8d9096",
+			"group": "pietra e muratura",
+			"description": "pietra grigia: basamenti, pavimenti esterni, muri antichi",
+			"rough": 0.95
+		},
+		"roccia": {
+			"color": "#7a7570",
+			"group": "pietra e muratura",
+			"description": "roccia naturale grigio-bruna",
+			"rough": 1.0
+		},
+		"mattoni": {
+			"color": "#b4583e",
+			"group": "pietra e muratura",
+			"description": "mattone rosso: muri, camini",
+			"rough": 0.9
+		},
+		"intonaco": {
+			"color": "#e9dcc3",
+			"group": "pietra e muratura",
+			"description": "intonaco chiaro caldo: muri delle case",
+			"rough": 0.9
+		},
+		"tetto": {
+			"color": "#a8432f",
+			"group": "pietra e muratura",
+			"description": "tegole in cotto",
+			"rough": 0.8
+		},
+		"tegole_blu": {
+			"color": "#3d5a80",
+			"group": "pietra e muratura",
+			"description": "tegole blu ardesia",
+			"rough": 0.8
+		},
+		"legno": {
+			"color": "#8b5a2b",
+			"group": "legni",
+			"description": "legno medio: mobili, travi, porte",
+			"rough": 0.85
+		},
+		"legno_chiaro": {
+			"color": "#c19a6b",
+			"group": "legni",
+			"description": "legno chiaro: pavimenti, piani, sedute",
+			"rough": 0.85
+		},
+		"corteccia_betulla": {
+			"color": "#e8e4da",
+			"group": "legni",
+			"description": "corteccia bianca di betulla",
+			"rough": 0.9
+		},
+		"erba": {
+			"color": "#6ab04c",
+			"group": "natura",
+			"description": "prato",
+			"rough": 1.0
+		},
+		"foglie": {
+			"color": "#4c9a2a",
+			"group": "natura",
+			"description": "chiome verdi",
+			"rough": 1.0
+		},
+		"foglie_scure": {
+			"color": "#2d6a4f",
+			"group": "natura",
+			"description": "conifere, siepi",
+			"rough": 1.0
+		},
+		"foglie_chiare": {
+			"color": "#95c95f",
+			"group": "natura",
+			"description": "germogli, cespugli giovani",
+			"rough": 1.0
+		},
+		"foglie_autunno": {
+			"color": "#e07a3f",
+			"group": "natura",
+			"description": "foglie arancioni d'autunno",
+			"rough": 1.0
+		},
+		"terra": {
+			"color": "#8d6e4a",
+			"group": "natura",
+			"description": "terra battuta, sentieri",
+			"rough": 1.0
+		},
+		"sabbia": {
+			"color": "#e3c88f",
+			"group": "natura",
+			"description": "sabbia, spiagge",
+			"rough": 1.0
+		},
+		"neve": {
+			"color": "#f2f5f7",
+			"group": "natura",
+			"description": "neve",
+			"rough": 0.9
+		},
+		"acqua": {
+			"color": "#3fa7d6c8",
+			"group": "acqua e vetro",
+			"description": "acqua trasparente",
+			"rough": 0.1,
+			"metal": 0.1
+		},
+		"vetro": {
+			"color": "#bfe6ff66",
+			"group": "acqua e vetro",
+			"description": "vetro di finestre e vetrine",
+			"rough": 0.05
+		},
+		"metallo": {
+			"color": "#a7b0b8",
+			"group": "metalli",
+			"description": "acciaio, cromature, maniglie",
+			"rough": 0.45,
+			"metal": 0.35
+		},
+		"ferro_scuro": {
+			"color": "#4a4f55",
+			"group": "metalli",
+			"description": "ferro battuto, lampioni, cardini",
+			"rough": 0.55,
+			"metal": 0.3
+		},
+		"oro": {
+			"color": "#e8c04f",
+			"group": "metalli",
+			"description": "oro, ottone, decorazioni",
+			"rough": 0.4,
+			"metal": 0.4
+		},
+		"rame": {
+			"color": "#c27a4a",
+			"group": "metalli",
+			"description": "rame: pentole, tubi, grondaie",
+			"rough": 0.45,
+			"metal": 0.4
+		},
+		"tessuto_rosso": {
+			"color": "#c0392b",
+			"group": "tessuti e superfici",
+			"description": "stoffa rossa: tende, cuscini, tappeti",
+			"rough": 1.0
+		},
+		"tessuto_blu": {
+			"color": "#3f6fb5",
+			"group": "tessuti e superfici",
+			"description": "stoffa blu: divani, cuscini",
+			"rough": 1.0
+		},
+		"tessuto_verde": {
+			"color": "#5f8f5a",
+			"group": "tessuti e superfici",
+			"description": "stoffa verde: poltrone, tende",
+			"rough": 1.0
+		},
+		"crema": {
+			"color": "#efe2c0",
+			"group": "tessuti e superfici",
+			"description": "crema: elettrodomestici retrò, tessuti chiari",
+			"rough": 0.7
+		},
+		"bianco_caldo": {
+			"color": "#f2ede4",
+			"group": "tessuti e superfici",
+			"description": "bianco caldo: lenzuola, elettrodomestici, muri interni",
+			"rough": 0.7
+		},
+		"ceramica": {
+			"color": "#f4f4f0",
+			"group": "tessuti e superfici",
+			"description": "ceramica lucida: lavandini, piatti, piastrelle",
+			"rough": 0.25
+		},
+		"nero": {
+			"color": "#2a2a2e",
+			"group": "tessuti e superfici",
+			"description": "nero opaco: schermi, gomme, dettagli",
+			"rough": 0.6
+		},
+		"luce_calda": {
+			"color": "#ffd27a",
+			"group": "luci",
+			"description": "luce calda: lampade, lanterne, finestre accese",
+			"rough": 0.5,
+			"glow": 2.0
+		},
+		"neon": {
+			"color": "#4fd1ff",
+			"group": "luci",
+			"description": "neon azzurro: insegne",
+			"rough": 0.4,
+			"glow": 2.5
+		},
+		"lava": {
+			"color": "#ff6a1a",
+			"group": "luci",
+			"description": "lava, braci, fuoco",
+			"rough": 0.6,
+			"glow": 3.0
+		}
+	}
+}

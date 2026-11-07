@@ -16,7 +16,7 @@ const AUTOSAVE_INTERVAL := 90.0
 ## With a debugger attached, any error in the agents' code freezes the game in a
 ## "Debugger Break". So by default the game restarts itself without the debugger.
 ## Pass `-- --keep-debugger` on the command line to opt out.
-const RELAUNCH_WITHOUT_DEBUGGER := true
+const RELAUNCH_WITHOUT_DEBUGGER := false
 
 
 var player
@@ -136,16 +136,32 @@ func _process(delta: float) -> void:
 	if _autosave_t >= AUTOSAVE_INTERVAL and not offline:
 		_autosave_t = 0.0
 		save_world(AUTOSAVE, false)
-	var s := "Autonomia %s · %d oggetti · ore %s\nSpesa $%.3f / $%.2f\n%s" % ["ON" if team.autonomy else "OFF", World.entities.size(), env.clock(), team.spent_usd, team.budget_usd, team.status_line()]
+	var agents: Array = []
+	var npcs: Array = []
+	for b in team.brains:
+		if not b.hidden:
+			(agents if b.can_build else npcs).append([b.agent_name, b.color, b.status_text])
+	var foot := PackedStringArray()
+	foot.append("autonomia " + ("on" if team.autonomy else "off"))
+	foot.append("%d oggetti" % World.entities.size())
 	if player.flying:
-		s += " · VOLO"
+		foot.append("volo")
+	var footer := "  ·  ".join(foot)
 	if build.active:
-		s += "\n" + build.status_text()
+		footer += "\n" + build.status_text()
 	if player.looking_at_id != "":
 		var n = World.entities.get(player.looking_at_id)
 		if n != null and is_instance_valid(n):
-			s += '\nMirino: %s "%s" (di %s)' % [player.looking_at_id, n.get_meta("label"), n.get_meta("author")]
-	ui.set_status(s)
+			footer += '\nmirino: %s "%s" di %s' % [player.looking_at_id, n.get_meta("label"), n.get_meta("author")]
+	ui.set_hud({
+		"time": env.clock(),
+		"spend": "$%.3f / $%.2f" % [team.spent_usd, team.budget_usd],
+		"over": team.spent_usd >= team.budget_usd,
+		"agents": agents,
+		"footer": footer,
+		"npcs": npcs,
+		"npc_footer": "autonomia " + ("on" if team.npc_autonomy else "off"),
+	})
 
 
 func _notification(what: int) -> void:
@@ -196,7 +212,7 @@ const HELP_TEXT := """Comandi:
 @Nome messaggio · parla a un agente (@tutti a tutti; senza @ risponde il lead)
 /agenti · elenca la squadra
 /nuovo Nome: descrizione del ruolo · crea un nuovo agente
-/rimuovi Nome · rimuove un agente
+/rimuovi Nome · rimuove un agente creato da te (agenti, NPC, modelli e permessi: Esc > Agenti)
 /salva [nome] · /carica [nome] · /salvataggi
 /annulla (Ctrl+Z) · /storia · /ripristina N · cronologia del mondo
 /blueprint nome descrizione · salva l'oggetto mirato · /piazza nome · /blueprints

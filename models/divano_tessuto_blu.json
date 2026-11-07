@@ -1,0 +1,175 @@
+{
+	"author": "Scultore",
+	"description": "Divano a tre posti in tessuto blu con braccioli, schienale, tre cuscini seduta e tre dorsali, cuscino giallo decorativo, gambe in legno. 2.16x0.95x0.94 m, fronte +Z.",
+	"name": "divano_tessuto_blu",
+	"parts": [
+		{
+			"height": 0.12,
+			"id": "gamba",
+			"mat": "legno",
+			"mirror": "x",
+			"positions": [
+				[
+					0.95,
+					0.0,
+					0.36
+				],
+				[
+					0.95,
+					0.0,
+					-0.36
+				]
+			],
+			"radius": 0.04,
+			"shape": "cylinder",
+			"sides": 6.0
+		},
+		{
+			"id": "base",
+			"mat": "#3b5b92",
+			"position": [
+				0.0,
+				0.12,
+				0.0
+			],
+			"shape": "box",
+			"size": [
+				2.1,
+				0.26,
+				0.9
+			]
+		},
+		{
+			"id": "schienale",
+			"mat": "#34528a",
+			"position": [
+				0.0,
+				0.38,
+				-0.34
+			],
+			"shape": "box",
+			"size": [
+				1.7,
+				0.5,
+				0.22
+			]
+		},
+		{
+			"id": "bracciolo",
+			"mat": "#34528a",
+			"mirror": "x",
+			"positions": [
+				[
+					0.95,
+					0.12,
+					0.0
+				]
+			],
+			"shape": "box",
+			"size": [
+				0.2,
+				0.58,
+				0.9
+			]
+		},
+		{
+			"id": "bracciolo_top",
+			"mat": "#3b5b92",
+			"mirror": "x",
+			"positions": [
+				[
+					0.95,
+					0.7,
+					0.0
+				]
+			],
+			"shape": "box",
+			"size": [
+				0.26,
+				0.08,
+				0.94
+			]
+		},
+		{
+			"id": "seduta",
+			"mat": "#4a6ca6",
+			"positions": [
+				[
+					-0.57,
+					0.38,
+					0.12
+				],
+				[
+					0.0,
+					0.38,
+					0.12
+				],
+				[
+					0.57,
+					0.38,
+					0.12
+				]
+			],
+			"shape": "box",
+			"size": [
+				0.56,
+				0.16,
+				0.62
+			]
+		},
+		{
+			"id": "cusc_schiena",
+			"mat": "#4a6ca6",
+			"positions": [
+				[
+					-0.57,
+					0.52,
+					-0.15
+				],
+				[
+					0.0,
+					0.52,
+					-0.15
+				],
+				[
+					0.57,
+					0.52,
+					-0.15
+				]
+			],
+			"rotation": [
+				-10.0,
+				0.0,
+				0.0
+			],
+			"shape": "box",
+			"size": [
+				0.56,
+				0.42,
+				0.17
+			]
+		},
+		{
+			"id": "cuscino_dec",
+			"mat": "#e8c46a",
+			"position": [
+				0.7,
+				0.6,
+				0.0
+			],
+			"rotation": [
+				-20.0,
+				25.0,
+				10.0
+			],
+			"shape": "box",
+			"size": [
+				0.3,
+				0.3,
+				0.1
+			]
+		}
+	],
+	"saved": "2026-11-07T12:35:40",
+	"tags": "divano sofa salotto soggiorno"
+}

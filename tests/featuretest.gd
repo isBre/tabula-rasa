@@ -65,7 +65,7 @@ func _ready() -> void:
 	_out.append("after restore to first: %d objects" % World.entities.size())
 
 	# --- costs
-	team.set_budget(0.001)
+	team.set_budget(0.001, false)
 	team.add_usage(team.find_brain("Architetto"), "claude-haiku-5-5", {"input_tokens": 3000, "output_tokens": 800, "cache_creation_input_tokens": 5000, "cache_read_input_tokens": 20000}, 1)
 	team.add_usage(team.find_brain("Ingegnere"), "claude-sonnet-5-5", {"input_tokens": 1000, "output_tokens": 500}, 0)
 	_out.append(team.costs_text())

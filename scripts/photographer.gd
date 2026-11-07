@@ -48,6 +48,70 @@ func capture(from: Vector3, target: Vector3, hide: Array = []) -> Image:
 	return img
 
 
+## Top-down orthographic plan of a square area (north = -Z at the top of the image), with
+## numbered labels (labels: [[world position, text], ...]) and coordinates on the edges.
+func plan(center: Vector3, size: float, labels: Array, hide: Array = []) -> Image:
+	while _busy:
+		await get_tree().process_frame
+	_busy = true
+	var old_size := _vp.size
+	_vp.size = Vector2i(800, 800)
+	_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	_cam.keep_aspect = Camera3D.KEEP_WIDTH
+	_cam.size = size
+	_cam.global_position = Vector3(center.x, center.y + 80.0, center.z)
+	_cam.look_at(Vector3(center.x, center.y, center.z), Vector3.FORWARD)
+	var temp: Array = []
+	var px := size / 800.0
+	for l in labels:
+		temp.append(_tag(l[0] + Vector3.UP * 0.5, str(l[1]), px * 1.15, Color.WHITE))
+	var step := 5.0 if size <= 40.0 else (10.0 if size <= 100.0 else 25.0)
+	var x0 := ceilf((center.x - size * 0.5) / step) * step
+	var x := x0
+	while x < center.x + size * 0.5:
+		temp.append(_tag(Vector3(x, center.y + 0.2, center.z - size * 0.5 + px * 22.0), "x=%d" % int(x), px * 0.9, Color("#ffe08a")))
+		x += step
+	var z := ceilf((center.z - size * 0.5) / step) * step
+	while z < center.z + size * 0.5:
+		temp.append(_tag(Vector3(center.x - size * 0.5 + px * 40.0, center.y + 0.2, z), "z=%d" % int(z), px * 0.9, Color("#ffe08a")))
+		z += step
+	var hidden: Array = []
+	for h in hide:
+		if is_instance_valid(h) and h.visible:
+			h.visible = false
+			hidden.append(h)
+	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var img := _vp.get_texture().get_image()
+	for h in hidden:
+		if is_instance_valid(h):
+			h.visible = true
+	for t in temp:
+		t.queue_free()
+	_cam.projection = Camera3D.PROJECTION_PERSPECTIVE
+	_cam.keep_aspect = Camera3D.KEEP_HEIGHT
+	_vp.size = old_size
+	_busy = false
+	return img
+
+
+func _tag(pos: Vector3, text: String, pixel: float, col: Color) -> Label3D:
+	var l := Label3D.new()
+	l.text = text
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.fixed_size = false
+	l.pixel_size = pixel
+	l.font_size = 22
+	l.outline_size = 8
+	l.outline_modulate = Color(0, 0, 0, 0.85)
+	l.modulate = col
+	get_tree().current_scene.add_child(l)
+	l.global_position = pos
+	return l
+
+
 ## Four framed views of an AABB in one 2x2 image: front, right side, back 3/4, top.
 func contact_sheet(box: AABB, hide: Array = []) -> Image:
 	var center := box.get_center()

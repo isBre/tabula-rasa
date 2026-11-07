@@ -1,0 +1,107 @@
+{
+	"author": "Scultore",
+	"description": "Panchina da parco low-poly: seduta e schienale in listelli di legno, fianchi e braccioli in ferro scuro. 1.7x0.92x0.52 m, fronte +Z.",
+	"name": "panchina_legno",
+	"parts": [
+		{
+			"id": "gamba",
+			"mat": "ferro_scuro",
+			"mirror": "x",
+			"positions": [
+				[
+					0.7,
+					0.0,
+					0.0
+				]
+			],
+			"shape": "box",
+			"size": [
+				0.08,
+				0.42,
+				0.45
+			]
+		},
+		{
+			"id": "seduta",
+			"mat": "legno",
+			"positions": [
+				[
+					0.0,
+					0.42,
+					-0.12
+				],
+				[
+					0.0,
+					0.42,
+					0.12
+				]
+			],
+			"shape": "box",
+			"size": [
+				1.7,
+				0.06,
+				0.2
+			]
+		},
+		{
+			"id": "montante",
+			"mat": "ferro_scuro",
+			"mirror": "x",
+			"positions": [
+				[
+					0.7,
+					0.42,
+					-0.22
+				]
+			],
+			"shape": "box",
+			"size": [
+				0.08,
+				0.5,
+				0.06
+			]
+		},
+		{
+			"id": "dorsale",
+			"mat": "legno",
+			"positions": [
+				[
+					0.0,
+					0.62,
+					-0.25
+				],
+				[
+					0.0,
+					0.8,
+					-0.25
+				]
+			],
+			"shape": "box",
+			"size": [
+				1.7,
+				0.12,
+				0.04
+			]
+		},
+		{
+			"id": "bracciolo",
+			"mat": "ferro_scuro",
+			"mirror": "x",
+			"positions": [
+				[
+					0.78,
+					0.68,
+					0.0
+				]
+			],
+			"shape": "box",
+			"size": [
+				0.08,
+				0.04,
+				0.5
+			]
+		}
+	],
+	"saved": "2026-11-07T12:46:24",
+	"tags": "panchina parco arredo urbano seduta"
+}

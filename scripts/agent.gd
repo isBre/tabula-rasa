@@ -29,6 +29,9 @@ var team            # team.gd, for the follow setting
 var follow_slot := 0
 
 var avatar
+var can_fly := true      # NPCs live on the ground: they walk everywhere
+var _label_lift := 0.0
+var look := {}           # appearance chosen in the menu: skin, hair, hair_style, pants, hat, height
 var velocity := Vector3.ZERO
 var _target := Vector3.ZERO
 var _follow_node: Node3D = null   # walking toward a moving target (player / teammate)
@@ -49,26 +52,61 @@ var _bubble_time := 0.0
 
 func _ready() -> void:
 	_target = position
+	_build_avatar()
+
+	_status = _make_label(20, color.lightened(0.4))
+	add_child(_status)
+	_bubble = _make_label(30, Color.WHITE)
+	add_child(_bubble)
+	_place_labels()
+	set_status("")
+
+
+## The appearance this agent has by default (from its slot), merged with `look`.
+func full_look() -> Dictionary:
 	var i := follow_slot
+	var d := {
+		"skin": SKINS[i % SKINS.size()], "hair": HAIRS[(i * 3 + 1) % HAIRS.size()], "hair_style": "corti",
+		"pants": PANTS[(i * 5 + 2) % PANTS.size()], "hat": "nessuno", "height": 0.94 + 0.03 * (i % 4),
+	}
+	d.merge(look, true)
+	return d
+
+
+func _build_avatar() -> void:
+	if avatar != null:
+		avatar.queue_free()
+	var l := full_look()
 	avatar = AvatarScript.new()
 	avatar.shirt = "#" + color.to_html(false)
-	avatar.skin = SKINS[i % SKINS.size()]
-	avatar.hair = HAIRS[(i * 3 + 1) % HAIRS.size()]
-	avatar.pants = PANTS[(i * 5 + 2) % PANTS.size()]
+	avatar.skin = str(l.skin)
+	avatar.hair = str(l.hair)
+	avatar.hair_style = str(l.hair_style)
+	avatar.pants = str(l.pants)
+	avatar.hat = str(l.hat)
 	avatar.label_text = agent_name
 	avatar.label_color = color.lightened(0.25)
 	avatar.hidden_from_owner = false
-	avatar.label_height = 2.12
-	avatar.scale = Vector3.ONE * (0.94 + 0.03 * (i % 4))
+	var h := clampf(float(l.height), 0.7, 1.3)
+	var hat_extra: float = {"cuoco": 0.28, "cilindro": 0.3, "corona": 0.12, "berretto": 0.06, "paglia": 0.1}.get(str(l.hat), 0.0)
+	avatar.label_height = 2.12 + hat_extra / h
+	avatar.scale = Vector3.ONE * h
 	add_child(avatar)
+	_label_lift = (2.12 + hat_extra) * h - 2.12 * 0.97
+	if _status:
+		_place_labels()
 
-	_status = _make_label(20, color.lightened(0.4))
-	_status.position.y = 2.3
-	add_child(_status)
-	_bubble = _make_label(30, Color.WHITE)
-	_bubble.position.y = 2.55
-	add_child(_bubble)
-	set_status("")
+
+## New appearance, applied right away.
+## Status and speech bubble above the head (and the hat).
+func _place_labels() -> void:
+	_status.position.y = 2.3 + _label_lift
+	_bubble.position.y = 2.55 + _label_lift
+
+
+func set_look(new_look: Dictionary) -> void:
+	look = new_look.duplicate()
+	_build_avatar()
 
 
 func _make_label(font_size: int, c: Color) -> Label3D:
@@ -110,7 +148,9 @@ func status_desc() -> String:
 func move_to(p: Vector3) -> void:
 	_follow_node = null
 	_target = p
-	_flying = p.y - _ground_y(p, p.y) > 1.5
+	_flying = can_fly and p.y - _ground_y(p, p.y) > 1.5
+	if not can_fly:
+		_target.y = _ground_y(p, p.y + 1.0)
 	_manual = true
 	_release_at = INF
 
@@ -124,7 +164,7 @@ func go_work(point: Vector3) -> void:
 		dir = Vector3(0, 0, 1)
 	var spot := point + dir.normalized() * WORK_DISTANCE
 	var ground := _ground_y(spot, point.y + 1.0)
-	spot.y = ground if point.y - ground < 2.5 else point.y   # high work: hover at its height
+	spot.y = ground if point.y - ground < 2.5 or not can_fly else point.y   # high work: hover at its height
 	move_to(spot)
 	_work_point = point
 	await _arrive(MAX_WAIT)
@@ -239,17 +279,17 @@ func _process(delta: float) -> void:
 	var moving := Vector2(velocity.x, velocity.z).length() > 0.3
 
 	# where to face: where it walks, else what it works on / who it talks to / the player
-	var look := Vector3.INF
+	var face_at := Vector3.INF
 	if moving and not _flying:
-		look = position + Vector3(velocity.x, 0, velocity.z)
+		face_at = position + Vector3(velocity.x, 0, velocity.z)
 	elif now < _work_until:
-		look = _work_point
+		face_at = _work_point
 	elif _look_node != null and is_instance_valid(_look_node):
-		look = _look_node.global_position
+		face_at = _look_node.global_position
 	elif World.player and Vector2(position.x - World.player.global_position.x, position.z - World.player.global_position.z).length() < 12.0:
-		look = World.player.global_position
-	if look != Vector3.INF:
-		var d := Vector3(look.x - position.x, 0, look.z - position.z)
+		face_at = World.player.global_position
+	if face_at != Vector3.INF:
+		var d := Vector3(face_at.x - position.x, 0, face_at.z - position.z)
 		if d.length() > 0.2:
 			var yaw := atan2(-d.x, -d.z)
 			rotation.y = lerp_angle(rotation.y, yaw, clampf(delta * 8.0, 0.0, 1.0))

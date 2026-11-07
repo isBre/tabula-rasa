@@ -209,7 +209,8 @@ func spawn_primitive(args: Dictionary, author: String, forced_id := "") -> Dicti
 	body.rotation_degrees = vec3(args.get("rotation_deg"), Vector3.ZERO)
 	var id := forced_id if forced_id != "" else _new_id()
 	_register(body, id, "primitive", author, str(args.get("name", shape)))
-	return _ok("Creato %s (%s, %s) in %s" % [id, shape, physics, _v(body.position)])
+	var r := _ok("Creato %s (%s, %s) in %s" % [id, shape, physics, _v(body.position)])
+	return _anchor_new(r, id, args) if forced_id == "" else r
 
 
 # ---------------------------------------------------------------- library models
@@ -235,9 +236,67 @@ func spawn_asset(args: Dictionary, author: String, forced_id := "") -> Dictionar
 	node.rotation_degrees = vec3(args.get("rotation_deg"), Vector3.ZERO)
 	node.set_meta("asset", asset_id)
 	node.set_meta("solid", solid)
+	var notes := PackedStringArray()
+	# placement helpers (skipped when rebuilding saved worlds: forced_id)
+	if forced_id == "" and not args.get("anchor") is Dictionary:
+		var facing = args.get("facing")
+		if facing is String and facing == "player" and player:
+			node.rotation.y = Assets.yaw_towards(node.position, player.global_position)
+		elif facing != null and not facing is String:
+			node.rotation.y = Assets.yaw_towards(node.position, vec3(facing, node.position))
+		if args.get("against_wall", false) == true:
+			notes.append(_push_against_wall(node, native * s))
+		if args.get("snap", true) != false:
+			var gy := _surface_below(node.position, [])
+			if gy != INF and absf(gy - node.position.y) > 0.01:
+				notes.append("appoggiato sulla superficie a y=%.2f" % gy)
+				node.position.y = gy
 	var id := forced_id if forced_id != "" else _new_id()
 	_register(node, id, "asset", author, str(args.get("name", asset_id.get_slice("/", 1))))
-	return _ok("Creato %s (%s) in %s, dimensioni %s m." % [id, asset_id, _v(node.position), _v(native * s)])
+	var txt := "Creato %s (%s) in %s, rotazione %d°, dimensioni %s m." % [id, asset_id, _v(node.position), roundi(node.rotation_degrees.y), _v(native * s)]
+	notes = PackedStringArray(Array(notes).filter(func(x): return x != ""))
+	if not notes.is_empty():
+		txt += " " + "; ".join(notes) + "."
+	return _anchor_new(_ok(txt), id, args) if forced_id == "" else _ok(txt)
+
+
+## Highest surface under a point (looking down from a bit above it), or INF if none.
+func _surface_below(at: Vector3, exclude: Array) -> float:
+	var space := root.get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 0.6, at + Vector3.DOWN * 60.0)
+	q.exclude = exclude + ([player.get_rid()] if player else [])
+	var hit := space.intersect_ray(q)
+	return hit.position.y if not hit.is_empty() else INF
+
+
+## Moves an object so its back touches the nearest wall (within 4 m) and turns its front
+## away from the wall, into the room.
+func _push_against_wall(node: Node3D, size: Vector3) -> String:
+	var space := root.get_world_3d().direct_space_state
+	var origin := node.position + Vector3.UP * minf(1.0, size.y * 0.5 + 0.05)
+	var best := {}
+	var best_d := INF
+	for k in 8:
+		var dir := Vector3.FORWARD.rotated(Vector3.UP, k * TAU / 8.0)
+		var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * 4.0)
+		if player:
+			q.exclude = [player.get_rid()]
+		var hit := space.intersect_ray(q)
+		if hit.is_empty() or absf(hit.normal.y) > 0.5:
+			continue
+		var d: float = origin.distance_to(hit.position)
+		if d < best_d:
+			best_d = d
+			best = hit
+	if best.is_empty():
+		return "nessun muro entro 4 m: lasciato dov'era"
+	var n: Vector3 = best.normal
+	n.y = 0.0
+	n = n.normalized()
+	node.rotation.y = atan2(n.x, n.z)          # front (+Z) along the wall's normal, into the room
+	var p: Vector3 = best.position + n * (size.z * 0.5 + 0.02)
+	node.position = Vector3(p.x, node.position.y, p.z)
+	return "spinto contro il muro più vicino, rivolto verso la stanza"
 
 
 func _build_primitive(body: Node3D) -> void:
@@ -353,6 +412,11 @@ func modify_object(args: Dictionary, _author: String) -> Dictionary:
 	elif args.has("size") or args.has("color") or args.has("shape"):
 		notes_out.append("size/color/shape valgono solo per le primitive: per oggetti script usa scale o riscrivi lo script.")
 	var txt := "Modificato %s." % id
+	if args.get("anchor") is Dictionary:
+		var p := place(node, args["anchor"])
+		if not p.ok:
+			return p
+		txt += " " + str(p.text) + "."
 	if not notes_out.is_empty():
 		txt += " Nota: " + " ".join(PackedStringArray(notes_out))
 	return _ok(txt)
@@ -436,7 +500,8 @@ func run_script(args: Dictionary, author: String, forced_id := "") -> Dictionary
 	node.set_meta("code", code)
 	_logger.take()
 	_register(node, id, "script", author, str(args.get("name", "script")))
-	return _ok(_with_runtime_report("Creato %s (script %s) in %s." % [id, base, _v(node.position)]))
+	var r := _ok(_with_runtime_report("Creato %s (script %s) in %s." % [id, base, _v(node.position)]))
+	return _anchor_new(r, id, args) if forced_id == "" else r
 
 
 func attach_script(args: Dictionary, _author: String) -> Dictionary:
@@ -483,6 +548,466 @@ func inspect_object(args: Dictionary) -> Dictionary:
 	for b in _behaviors(n):
 		out += "\n--- comportamento (%s) ---\n%s" % [b.name, str(b.get_meta("code"))]
 	return _ok(out)
+
+
+# ---------------------------------------------------------------- anchors
+
+## Directions an object can be placed on, in the anchor's frame. Relative sides use the
+## target's own orientation: its front is its +Z, left/right are its own (like a person
+## sitting on a sofa). Compass sides use the world: north = -Z, south = +Z, east = +X, west = -X.
+const ANCHOR_SIDES := {
+	"front": Vector3(0, 0, 1), "back": Vector3(0, 0, -1), "left": Vector3(1, 0, 0), "right": Vector3(-1, 0, 0),
+	"north": Vector3(0, 0, -1), "south": Vector3(0, 0, 1), "east": Vector3(1, 0, 0), "west": Vector3(-1, 0, 0),
+	"top": Vector3.UP, "bottom": Vector3.DOWN,
+}
+const ANCHOR_ALIASES := {
+	"davanti": "front", "dietro": "back", "behind": "back", "sinistra": "left", "destra": "right",
+	"nord": "north", "sud": "south", "est": "east", "ovest": "west",
+	"on": "top", "above": "top", "on_top": "top", "sopra": "top", "below": "bottom", "under": "bottom", "sotto": "bottom",
+	"in": "inside", "into": "inside", "dentro": "inside",
+}
+const RELATIVE_SIDES := ["front", "back", "left", "right"]
+
+
+func _side_name(v) -> String:
+	var s := str(v).strip_edges().to_lower()
+	return ANCHOR_ALIASES.get(s, s)
+
+
+func _axis_of(v: Vector3) -> int:
+	return 0 if absf(v.x) > 0.5 else (1 if absf(v.y) > 0.5 else 2)
+
+
+## What an anchor refers to: "obj_12", "obj_12/name" (a child node with that name, searched
+## at any depth), "obj_12/3" (its 3rd part, numbered like the placement check and plan_view),
+## "player", a point [x, y, z], or a Node3D (from scripts). Returns a Node3D, a Vector3 or null.
+func anchor_target(t) -> Variant:
+	if t is Node3D:
+		return t if is_instance_valid(t) else null
+	if t is Array or t is Vector3 or t is Dictionary:
+		return vec3(t)
+	var s := str(t).strip_edges()
+	if s.to_lower() in ["player", "giocatore"]:
+		return player
+	var bits := s.split("/", true, 1)
+	var n = _get_entity(bits[0])
+	if n == null or bits.size() == 1:
+		return n
+	var sub := bits[1].strip_edges()
+	var num := sub.to_lower().replace("parte", "").replace("part", "").strip_edges()
+	if num.is_valid_int():
+		var ps := _parts(n)
+		var i := int(num) - 1
+		return ps[i] if i >= 0 and i < ps.size() else null
+	return n.find_child(sub, true, false)
+
+
+## Bounding box of a node's visible geometry, in `frame` coordinates. `skip` (and what is
+## under it) is left out, so an object can be anchored inside the object that contains it.
+func _box_in(n: Node, frame: Transform3D, skip: Node = null) -> AABB:
+	var inv := frame.affine_inverse()
+	var out := AABB()
+	var found := false
+	var stack: Array = [n]
+	var visited := 0
+	while not stack.is_empty() and visited < 5000:
+		var c = stack.pop_back()
+		visited += 1
+		if c == null or not is_instance_valid(c) or (skip != null and c == skip):
+			continue
+		if c is GeometryInstance3D and c.visible and not c is Label3D:
+			var a: AABB = (inv * c.global_transform) * c.get_aabb()
+			out = a if not found else out.merge(a)
+			found = true
+		for ch in c.get_children():
+			stack.append(ch)
+	if not found and n is Node3D:
+		return AABB(inv * n.global_position, Vector3.ZERO)
+	return out
+
+
+func _yaw_of(n: Node3D) -> float:
+	var z := n.global_transform.basis.z
+	return atan2(z.x, z.z)
+
+
+func _set_yaw(n: Node3D, yaw: float) -> void:
+	var t := n.global_transform
+	t.basis = Basis(Vector3.UP, yaw) * Basis.from_scale(t.basis.get_scale())
+	n.global_transform = t
+
+
+## A collider tall enough to be a wall (furniture in the way is skipped).
+func _is_wall(collider) -> bool:
+	if not collider is Node3D:
+		return false
+	var box := world_aabb(collider)
+	if box.size.y < 0.01 and collider.get_parent() is Node3D:
+		box = world_aabb(collider.get_parent())
+	return box.size.y >= 1.5
+
+
+## Which way the object should look, as a world yaw, or null to keep its rotation.
+func _anchor_face(node: Node3D, face, side: String, walls: Array, frame: Transform3D, target) -> Variant:
+	var target_node: Node3D = target if target is Node3D else null
+	if face is Array or face is Vector3:
+		var dp := vec3(face) - node.global_position
+		if Vector2(dp.x, dp.z).length() < 0.001:
+			return null
+		return atan2(dp.x, dp.z)
+	var f := _side_name(face)
+	var d := Vector3.ZERO
+	match f:
+		"keep", "", "none":
+			return null
+		"same":
+			if target_node == null:
+				return null
+			return _yaw_of(target_node)
+		"into_room", "room":
+			if walls.is_empty():
+				return null
+			for w in walls:
+				d -= frame.basis * ANCHOR_SIDES[w]
+		"toward", "towards", "verso", "away":
+			if ANCHOR_SIDES.has(side) and not side in ["top", "bottom"]:
+				d = frame.basis * -ANCHOR_SIDES[side]
+			else:
+				var c: Vector3 = world_aabb(target_node).get_center() if target_node else target
+				d = c - node.global_position
+			if f == "away":
+				d = -d
+		"player", "giocatore":
+			if player == null:
+				return null
+			d = player.global_position - node.global_position
+		_:
+			if ANCHOR_SIDES.has(f) and not f in ["top", "bottom"]:
+				d = frame.basis * ANCHOR_SIDES[f]
+	d.y = 0.0
+	if d.length() < 0.001:
+		return null
+	# with two walls (a corner) look along the diagonal only if asked; otherwise away from the first
+	if f in ["into_room", "room"] and walls.size() > 1:
+		d = frame.basis * -ANCHOR_SIDES[walls[0]]
+	return atan2(d.x, d.z)
+
+
+## How far to move (in frame coordinates) so the object sits where the anchor says.
+func _anchor_delta(node: Node3D, target, frame: Transform3D, side: String, walls: Array, align: String, gap: float) -> Vector3:
+	var target_node: Node3D = target if target is Node3D else null
+	var tb := _box_in(target_node, frame, node) if target_node else AABB()
+	var nb := _box_in(node, frame)
+	var tc := tb.get_center()
+	var nc := nb.get_center()
+	var d := Vector3(tc.x - nc.x, tb.position.y - nb.position.y, tc.z - nc.z)
+	var used: Array = []
+	if side == "inside":
+		for w in walls:
+			var v: Vector3 = ANCHOR_SIDES[w]
+			var k := _axis_of(v)
+			d[k] = (tb.end[k] - gap - nb.end[k]) if v[k] > 0 else (tb.position[k] + gap - nb.position[k])
+			used.append(k)
+	elif side == "top" or side == "bottom":
+		d.y = (tb.end.y + gap - nb.position.y) if side == "top" else (tb.position.y - gap - nb.end.y)
+	else:
+		var v: Vector3 = ANCHOR_SIDES[side]
+		var k := _axis_of(v)
+		d[k] = (tb.end[k] + gap - nb.position[k]) if v[k] > 0 else (tb.position[k] - gap - nb.end[k])
+		used.append(k)
+	for raw_al in align.split(","):
+		var al := _side_name(raw_al)
+		if not ANCHOR_SIDES.has(al):
+			continue
+		var v: Vector3 = ANCHOR_SIDES[al]
+		var k := _axis_of(v)
+		if k in used:
+			continue
+		if k == 1 and side in ["top", "bottom"]:
+			continue
+		d[k] = (tb.end[k] - nb.end[k]) if v[k] > 0 else (tb.position[k] - nb.position[k])
+	return d
+
+
+## Slides the object until it touches the real wall surface on each side in `walls`,
+## looking from the middle of the target (so rays never start inside a wall).
+func _anchor_walls(node: Node3D, target_node: Node3D, frame: Transform3D, walls: Array, gap: float) -> int:
+	var space := root.get_world_3d().direct_space_state
+	var own: Array = _rids(node, [])
+	if player:
+		own.append(player.get_rid())
+	var tb := _box_in(target_node, frame, node)
+	var touched := 0
+	for w in walls:
+		var v: Vector3 = ANCHOR_SIDES[w]
+		var k := _axis_of(v)
+		var nb := _box_in(node, frame)
+		var start := nb.get_center()
+		start[k] = tb.get_center()[k]
+		start.y = nb.position.y + clampf(nb.size.y * 0.5, 0.15, 1.0)
+		var reach := tb.size[k] * 0.5 + 1.0
+		var exclude := own.duplicate()
+		var hit := {}
+		for _i in 8:
+			var q := PhysicsRayQueryParameters3D.create(frame * start, frame * (start + v * reach))
+			q.exclude = exclude
+			var h := space.intersect_ray(q)
+			if h.is_empty():
+				break
+			if absf(h.normal.y) < 0.5 and _is_wall(h.collider):
+				hit = h
+				break
+			exclude.append(h.rid)
+		if hit.is_empty():
+			continue
+		var hk: float = (frame.affine_inverse() * hit.position)[k]
+		var cur: float = nb.end[k] if v[k] > 0 else nb.position[k]
+		var want: float = hk - gap if v[k] > 0 else hk + gap
+		var shift := Vector3.ZERO
+		shift[k] = want - cur
+		node.global_position += frame.basis * shift
+		touched += 1
+	return touched
+
+
+## Moves and turns `node` relative to something else, so nobody computes coordinates.
+## a = {to, side, wall, align, gap, offset, face, snap} (see the agents' prompt).
+## Works on world objects and on parts inside a script (World.place(child, {...})).
+func place(node: Node3D, a: Dictionary) -> Dictionary:
+	if node == null or not is_instance_valid(node) or not node.is_inside_tree():
+		return _err("Ancora: oggetto non valido (in uno script, fai prima add_child).")
+	var target = anchor_target(a.get("to", ""))
+	if target == null:
+		return _err("Ancora: '%s' non trovato. 'to' accetta un id (obj_12), una parte (obj_12/nome_nodo o obj_12/3), \"player\" o [x,y,z]." % str(a.get("to", "")))
+	var target_node: Node3D = target if target is Node3D else null
+	if target_node and (target_node == node or node.is_ancestor_of(target_node)):
+		return _err("Ancora: un oggetto non si può ancorare a se stesso o a una sua parte.")
+	var walls: Array = []
+	var raw_walls = a.get("wall", a.get("walls", []))
+	var wall_list: Array = raw_walls if raw_walls is Array else [raw_walls]
+	for w in wall_list:
+		var wn := _side_name(w)
+		if wn == "":
+			continue
+		if not ANCHOR_SIDES.has(wn) or wn in ["top", "bottom"]:
+			return _err("Ancora: parete '%s' non valida. Usa front, back, left, right, north, south, east, west." % str(w))
+		walls.append(wn)
+	var side := _side_name(a.get("side", "inside" if not walls.is_empty() else "front"))
+	if side != "inside" and not ANCHOR_SIDES.has(side):
+		return _err("Ancora: side '%s' non valido. Usa front, back, left, right, top, bottom, north, south, east, west o inside." % side)
+	if side != "inside" and not walls.is_empty():
+		return _err("Ancora: 'wall' si usa solo con side=inside (contro una parete interna del bersaglio).")
+	if target_node == null and side == "inside" and not walls.is_empty():
+		return _err("Ancora: per 'wall' serve un oggetto come bersaglio (una stanza, un pavimento), non un punto.")
+	# walls are the target's walls: a compass name means the one that faces most that way
+	var wall_notes := PackedStringArray()
+	if side == "inside" and target_node:
+		var inv := Basis(Vector3.UP, _yaw_of(target_node)).inverse()
+		for i in walls.size():
+			if walls[i] in RELATIVE_SIDES:
+				continue
+			var lv: Vector3 = inv * ANCHOR_SIDES[walls[i]]
+			var rel := ("left" if lv.x > 0 else "right") if absf(lv.x) > absf(lv.z) else ("front" if lv.z > 0 else "back")
+			if absf(absf(lv.x) - absf(lv.z)) > 0.05:
+				wall_notes.append("%s = suo lato %s" % [walls[i], rel])
+			walls[i] = rel
+	var align := str(a.get("align", "center")).to_lower()
+	var relative := side == "inside"
+	for s in [side] + walls + Array(align.split(",")):
+		if _side_name(s) in RELATIVE_SIDES:
+			relative = true
+	var origin: Vector3 = target if target is Vector3 else target_node.global_position
+	var frame := Transform3D(Basis(Vector3.UP, _yaw_of(target_node) if relative and target_node else 0.0), origin)
+	var default_gap := 0.02 if side == "inside" else (0.0 if side in ["top", "bottom"] else 0.05)
+	var gap := float(a.get("gap", default_gap))
+	var offset := vec3(a.get("offset"), Vector3.ZERO)
+	var face = a.get("face", null)
+	if face == null:
+		if side == "inside" and not walls.is_empty():
+			face = "into_room"
+		elif side == "inside":
+			face = "same"
+		elif side in ["front", "back"]:
+			face = "toward"
+		elif side in ["left", "right"]:
+			face = "same"
+		else:
+			face = "keep"
+	# two passes: facing can depend on where the object ends up, and turning changes its footprint
+	for _pass in 2:
+		var yaw = _anchor_face(node, face, side, walls, frame, target)
+		if yaw != null:
+			_set_yaw(node, yaw)
+		var d := _anchor_delta(node, target, frame, side, walls, align, gap)
+		node.global_position += frame.basis * (d + offset)
+	var notes := wall_notes
+	if side == "inside" and not walls.is_empty():
+		var touched := _anchor_walls(node, target_node, frame, walls, gap)
+		if touched < walls.size():
+			notes.append("muro vero non trovato su %d lati: usati i bordi del bersaglio" % (walls.size() - touched))
+	# rest on what is below (floor, rug, platform) unless lifted on purpose
+	if a.get("snap", true) != false and not side in ["top", "bottom"] and absf(offset.y) < 0.001:
+		var nb := world_aabb(node)
+		var from := Vector3(nb.get_center().x, nb.position.y + 0.5, nb.get_center().z)
+		var q := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 30.0)
+		q.exclude = _rids(node, []) + ([player.get_rid()] if player else [])
+		var hit := root.get_world_3d().direct_space_state.intersect_ray(q)
+		if not hit.is_empty() and absf(hit.position.y - nb.position.y) > 0.005 and absf(hit.position.y - nb.position.y) < 1.0:
+			node.global_position.y += hit.position.y - nb.position.y
+	var box := world_aabb(node)
+	var where := "%s di %s" % [side if side != "inside" else "dentro", _anchor_label(a.get("to", ""))]
+	if not walls.is_empty():
+		where += " contro la parete " + "+".join(PackedStringArray(walls))
+	var txt := "ancorato %s: posizione %s, rotazione %d°, ingombro da %s a %s" % [where, _v(node.global_position), roundi(rad_to_deg(_yaw_of(node))), _v(box.position), _v(box.end)]
+	if not notes.is_empty():
+		txt += " (" + "; ".join(notes) + ")"
+	return _ok(txt)
+
+
+func _anchor_label(t) -> String:
+	if t is Node3D:
+		return str(t.name)
+	if t is Array or t is Vector3:
+		return _v(vec3(t))
+	return str(t)
+
+
+## Applies args.anchor to an object a building tool has just created.
+func _anchor_new(r: Dictionary, id: String, args: Dictionary) -> Dictionary:
+	if not r.ok or not args.get("anchor") is Dictionary:
+		return r
+	var n = _get_entity(id)
+	if n == null:
+		return r
+	var p := place(n, args["anchor"])
+	if not p.ok:
+		n.queue_free()
+		return _err("Non creato. " + p.text)
+	r["text"] = str(r.text) + " Poi " + p.text + "."
+	return r
+
+
+## The `place` tool: moves an existing object with an anchor.
+func place_object(args: Dictionary) -> Dictionary:
+	var id := str(args.get("id", ""))
+	var n = _get_entity(id)
+	if n == null:
+		return _err("Oggetto '%s' non trovato." % id)
+	var a = args.get("anchor", args)
+	if not a is Dictionary:
+		return _err("anchor deve essere un oggetto {to, side, ...}.")
+	var p := place(n, a)
+	if p.ok:
+		p["text"] = "%s %s." % [id, p.text]
+		if n is RigidBody3D:
+			n.linear_velocity = Vector3.ZERO
+	return p
+
+
+# ---------------------------------------------------------------- placement check
+
+## The pieces of an object worth checking: the object itself for library models and
+## primitives, the direct children with geometry for scripts.
+func _parts(n: Node3D) -> Array:
+	if n.get_meta("kind", "") != "script":
+		return [n]
+	var out: Array = []
+	for c in n.get_children():
+		if c is Node3D and not c.has_meta("behavior"):
+			var box := world_aabb(c)
+			if box.size.length() > 0.05:
+				out.append(c)
+	return out
+
+
+func _part_name(n: Node3D, owner_id: String, index: int) -> String:
+	var label := ""
+	if n.has_meta("asset"):
+		label = str(n.get_meta("asset")).get_slice("/", 1)
+	elif n.has_meta("id"):
+		return '%s "%s"' % [n.get_meta("id"), n.get_meta("label")]
+	else:
+		label = str(n.name).trim_prefix("@").get_slice("@", 0)
+	return "%s parte %d (%s)" % [owner_id, index, label]
+
+
+func _rids(n: Node, out: Array) -> Array:
+	if n is CollisionObject3D:
+		out.append(n.get_rid())
+	for c in n.get_children():
+		_rids(c, out)
+	return out
+
+
+## Lists concrete placement problems of one object: pieces interpenetrating each other or
+## other objects nearby, pieces floating above what is under them. "" if everything is fine.
+func placement_report(id: String) -> String:
+	var n = _get_entity(id)
+	if n == null:
+		return ""
+	var issues := PackedStringArray()
+	var mine := _parts(n)
+	var boxes := {}
+	for i in mine.size():
+		boxes[mine[i]] = world_aabb(mine[i])
+	var flat := func(b: AABB) -> bool: return b.size.y < 0.25 or b.size.x * b.size.z > 150.0
+	# others nearby
+	var center: Vector3 = world_aabb(n).get_center()
+	var others: Array = []
+	for oid in entities:
+		if oid == id:
+			continue
+		var o = _get_entity(oid)
+		if o == null or world_aabb(o).get_center().distance_to(center) > 30.0:
+			continue
+		var oparts := _parts(o)
+		for j in oparts.size():
+			others.append([oparts[j], world_aabb(oparts[j]), _part_name(oparts[j], oid, j + 1) if o.get_meta("kind") == "script" else '%s "%s"' % [oid, o.get_meta("label")]])
+	for i in mine.size():
+		var a: Node3D = mine[i]
+		var ab: AABB = boxes[a]
+		if flat.call(ab):
+			continue
+		var aname := _part_name(a, id, i + 1)
+		var against: Array = []
+		for j in range(i + 1, mine.size()):
+			against.append([mine[j], boxes[mine[j]], _part_name(mine[j], id, j + 1)])
+		against += others
+		for other in against:
+			var bb: AABB = other[1]
+			if flat.call(bb) or not ab.intersects(bb):
+				continue
+			var inter := _oriented_overlap(a, other[0])
+			if inter.x > 0.1 and inter.y > 0.1 and inter.z > 0.1:
+				issues.append("%s compenetra %s (sovrapposizione %.2f x %.2f x %.2f m)" % [aname, other[2], inter.x, inter.y, inter.z])
+		# floating
+		var bottom := Vector3(ab.get_center().x, ab.position.y, ab.get_center().z)
+		var gy := _surface_below(bottom + Vector3.UP * 0.05 - Vector3.UP * 0.6, _rids(a, []))
+		if gy != INF and ab.position.y - gy > 0.12 and ab.size.y > 0.25:
+			issues.append("%s fluttua %.2f m sopra la superficie sotto (se non è voluto, abbassalo a y=%.2f)" % [aname, ab.position.y - gy, gy])
+		if issues.size() >= 12:
+			break
+	if issues.is_empty():
+		return "Controllo posizionamento di %s: nessuna compenetrazione o oggetto sospeso." % id
+	return "Controllo posizionamento di %s, %d problemi:\n- %s" % [id, issues.size(), "\n- ".join(issues.slice(0, 12))]
+
+
+## How much two pieces overlap, measured along their own orientations: a wall turned by 30
+## degrees has a world box much bigger than the wall, which reported overlaps that weren't
+## there. Separated along either piece's axes = not touching (Vector3.ZERO).
+func _oriented_overlap(a: Node3D, b: Node3D) -> Vector3:
+	var best := Vector3.ZERO
+	for i in 2:
+		var ref: Node3D = a if i == 0 else b
+		var f := Transform3D(Basis(Vector3.UP, _yaw_of(ref)), ref.global_position)
+		var ba := _box_in(a, f)
+		var bb := _box_in(b, f)
+		if not ba.intersects(bb):
+			return Vector3.ZERO
+		var sz := ba.intersection(bb).size
+		if i == 0 or sz.x * sz.y * sz.z < best.x * best.y * best.z:
+			best = sz
+	return best
 
 
 # ---------------------------------------------------------------- measuring
@@ -675,7 +1200,7 @@ func describe(viewer := "", max_items := 60) -> String:
 		lines.append("... e altri %d oggetti più lontani" % (items.size() - max_items))
 	if environment:
 		lines.append("Ambiente: " + environment.describe())
-	lines.append("Libreria modelli: %d modelli pronti (search_assets per cercarli)" % Assets.catalog.size())
+	lines.append("Libreria modelli della squadra: %d (elenco nel prompt; design_model per crearne di nuovi)" % Assets.catalog.size())
 	var bps := list_blueprints()
 	if not bps.is_empty():
 		var names := PackedStringArray()
@@ -785,6 +1310,7 @@ func serialize() -> Dictionary:
 func deserialize(data: Dictionary) -> Array:
 	reset_world()
 	var problems := []
+	var missing := []   # library models that don't exist (any more)
 	var max_id := 0
 	for e in data.get("entities", []):
 		if not e is Dictionary:
@@ -793,6 +1319,9 @@ func deserialize(data: Dictionary) -> Array:
 		if not id.begins_with("obj_"):
 			id = _new_id()
 		max_id = max(max_id, int(id.substr(4)))
+		if e.get("kind") == "asset" and not Assets.has(str(e.get("asset", ""))):
+			missing.append(str(e.get("asset", "")))
+			continue
 		var r := spawn_from_data(e, str(e.get("author", "?")), id)
 		if not r.ok:
 			problems.append("%s: %s" % [id, r.text])
@@ -802,6 +1331,11 @@ func deserialize(data: Dictionary) -> Array:
 	if environment and data.get("environment") is Dictionary:
 		environment.apply(data["environment"])
 	_logger.take()
+	if not missing.is_empty():
+		var kinds := {}
+		for m in missing:
+			kinds[m.get_slice("/", 1) if "/" in m else m] = true
+		problems.push_front("%d oggetti saltati perché il loro modello non c'è nella libreria (%s)" % [missing.size(), ", ".join(PackedStringArray(kinds.keys().slice(0, 6))) + ("…" if kinds.size() > 6 else "")])
 	return problems
 
 
@@ -854,6 +1388,7 @@ func spawn_blueprint(args: Dictionary, author: String) -> Dictionary:
 	var r := spawn_from_data(e, author)
 	if r.ok:
 		r["text"] = "Piazzato il blueprint '%s' come %s in %s." % [bp_name, r.id, _v(vec3(e["position"]))]
+		r = _anchor_new(r, r.id, args)
 	return r
 
 

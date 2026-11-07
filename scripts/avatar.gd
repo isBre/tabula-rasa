@@ -10,6 +10,8 @@ var shirt := "#2f8fce"
 var pants := "#3a3f4b"
 var shoes := "#2a2a2e"
 var hair := "#4a3426"
+var hair_style := "corti"   # corti | lunghi | cresta | calvo
+var hat := "nessuno"        # nessuno | berretto | cilindro | cuoco | paglia | corona
 var label_text := "Giocatore"
 var label_color := Color.WHITE
 var hidden_from_owner := true   # player's body: not drawn by the player's camera
@@ -40,7 +42,7 @@ func _ready() -> void:
 	neck.position.y = 0.6
 	torso.add_child(neck)
 	_part(neck, Shapes.box(Vector3(0.24, 0.27, 0.25), skin, false), Vector3(0, 0.02, 0))
-	_part(neck, Shapes.box(Vector3(0.26, 0.08, 0.27), hair, false), Vector3(0, 0.27, 0.01))
+	_hair_and_hat()
 	_part(neck, Shapes.box(Vector3(0.18, 0.035, 0.02), "#1d1d22", false), Vector3(0, 0.18, -0.125))  # eyes band
 	mouth = Node3D.new()
 	mouth.position = Vector3(0, 0.085, -0.127)
@@ -63,6 +65,42 @@ func _ready() -> void:
 	add_child(label)
 	if hidden_from_owner:
 		_set_layers(self)
+
+
+## Hair and hat on the head (the face looks toward -Z, the top of the head is at y 0.29).
+func _hair_and_hat() -> void:
+	match hair_style:
+		"calvo":
+			pass
+		"cresta":
+			_part(neck, Shapes.box(Vector3(0.07, 0.12, 0.25), hair, false), Vector3(0, 0.27, 0.01))
+		"lunghi":
+			_part(neck, Shapes.box(Vector3(0.26, 0.08, 0.27), hair, false), Vector3(0, 0.27, 0.01))
+			_part(neck, Shapes.box(Vector3(0.27, 0.3, 0.06), hair, false), Vector3(0, 0.02, 0.11))
+			for side in [-1, 1]:
+				_part(neck, Shapes.box(Vector3(0.03, 0.2, 0.18), hair, false), Vector3(side * 0.13, 0.1, 0.04))
+		_:
+			_part(neck, Shapes.box(Vector3(0.26, 0.08, 0.27), hair, false), Vector3(0, 0.27, 0.01))
+	match hat:
+		"berretto":
+			_part(neck, Shapes.box(Vector3(0.28, 0.08, 0.29), shirt, false), Vector3(0, 0.29, 0.01))
+			_part(neck, Shapes.box(Vector3(0.22, 0.02, 0.13), shirt, false), Vector3(0, 0.29, -0.18))
+		"cilindro":
+			_part(neck, Shapes.box(Vector3(0.38, 0.02, 0.38), "#1f1f24", false), Vector3(0, 0.3, 0.01))
+			_part(neck, Shapes.box(Vector3(0.22, 0.26, 0.22), "#1f1f24", false), Vector3(0, 0.32, 0.01))
+			_part(neck, Shapes.box(Vector3(0.225, 0.04, 0.225), shirt, false), Vector3(0, 0.33, 0.01))
+		"cuoco":
+			_part(neck, Shapes.box(Vector3(0.27, 0.07, 0.28), "#f4f4f2", false), Vector3(0, 0.28, 0.01))
+			_part(neck, Shapes.box(Vector3(0.32, 0.18, 0.32), "#ffffff", false), Vector3(0, 0.35, 0.01))
+		"paglia":
+			_part(neck, Shapes.box(Vector3(0.52, 0.02, 0.52), "#d8b45a", false), Vector3(0, 0.3, 0.01))
+			_part(neck, Shapes.box(Vector3(0.25, 0.1, 0.25), "#d8b45a", false), Vector3(0, 0.31, 0.01))
+			_part(neck, Shapes.box(Vector3(0.255, 0.03, 0.255), "#a8432f", false), Vector3(0, 0.32, 0.01))
+		"corona":
+			_part(neck, Shapes.box(Vector3(0.27, 0.05, 0.28), "oro", false), Vector3(0, 0.3, 0.01))
+			for x in [-0.11, 0.0, 0.11]:
+				for z in [-0.12, 0.12]:
+					_part(neck, Shapes.box(Vector3(0.05, 0.07, 0.04), "oro", false), Vector3(x, 0.34, z + 0.01))
 
 
 ## A limb hanging down from a pivot: segments stacked downward.

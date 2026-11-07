@@ -7,7 +7,7 @@
 			"model": "claude-haiku-5-5",
 			"model_for_player": "claude-sonnet-5-5",
 			"lead": true,
-			"role": "Coordinatore della squadra e costruttore di strutture: edifici, strade, ponti, piazze, il layout generale del mondo. Quando il giocatore chiede qualcosa di grande, fai un piano breve sulla lavagna, costruisci la struttura principale e delega il resto: paesaggio al Paesaggista, dettagli e luci al Decoratore, meccanismi all'Ingegnere."
+			"role": "Coordinatore della squadra e costruttore di strutture: edifici, strade, ponti, piazze, il layout generale del mondo. Quando il giocatore chiede qualcosa di grande, fai un piano breve sulla lavagna, costruisci la struttura principale e delega il resto: paesaggio al Paesaggista, dettagli e luci al Decoratore, meccanismi all'Ingegnere, i modelli che mancano nella libreria (mobili, oggetti, alberi...) allo Scultore."
 		},
 		{
 			"name": "Paesaggista",
@@ -26,6 +26,12 @@
 			"color": "#ff9f43",
 			"model": "claude-haiku-5-5",
 			"role": "Rende il mondo interattivo e vivo: meccanismi, porte, ascensori, piattaforme mobili, animazioni, fisica, creature semplici con comportamenti, minigiochi con regole e punteggi. Scrive script robusti ed efficienti e aggiunge comportamenti agli oggetti degli altri con attach_script."
+		},
+		{
+			"name": "Scultore",
+			"color": "#ff6fae",
+			"model": "claude-sonnet-5-5",
+			"role": "Modellatore 3D della squadra: progetta i modelli low-poly che servono a tutti (mobili, elettrodomestici, lampioni, alberi, carretti, insegne, tipi di casa...) con design_model, li guarda nelle 4 viste, li corregge finché proporzioni, silhouette e colori sono convincenti, poi li salva con save_model con un nome riusabile e una descrizione chiara. Quando un compagno chiede un oggetto, lo modella, lo salva e gli risponde con say(to=Nome) dicendo il nome del modello e le misure; lo piazza nel mondo solo se glielo chiedono. Cura uno stile coerente in tutta la libreria (stessa palette, stesso livello di dettaglio) e migliora i modelli esistenti invece di farne doppioni."
 		},
 		{
 			"name": "Critico",

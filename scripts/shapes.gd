@@ -5,7 +5,10 @@ extends Node
 ## `mat` accepts a palette name, a Color, a "#hex" string or a Material.
 ## `solid` (default true) adds collision so the player can stand on / bump into it.
 
-const PALETTE := {
+## The shared palette: res://palette.json (all worlds), extended by the agents with add_color.
+## These are the built-in entries, used if the file is missing.
+const PALETTE_FILE := "res://palette.json"
+const DEFAULT_PALETTE := {
 	"pietra": {"color": "#8d9096", "rough": 0.95},
 	"roccia": {"color": "#7a7570", "rough": 1.0},
 	"mattoni": {"color": "#b4583e", "rough": 0.9},
@@ -33,8 +36,90 @@ const PALETTE := {
 	"neon": {"color": "#4fd1ff", "rough": 0.4, "glow": 2.5},
 	"luce_calda": {"color": "#ffd27a", "rough": 0.5, "glow": 2.0},
 }
+const NEAR_DUPLICATE := 0.07   # colors closer than this (RGB distance) count as the same
+var PALETTE := {}   # name -> {color, rough, metal?, glow?, group, description}
+
 
 var _mat_cache := {}
+
+
+func _ready() -> void:
+	load_palette()
+
+
+func load_palette() -> void:
+	PALETTE = DEFAULT_PALETTE.duplicate(true)
+	if not FileAccess.file_exists(PALETTE_FILE):
+		return
+	var data = JSON.parse_string(FileAccess.get_file_as_string(PALETTE_FILE))
+	if data is Dictionary and data.get("colors") is Dictionary:
+		for n in data.colors:
+			if data.colors[n] is Dictionary and Color.html_is_valid(str(data.colors[n].get("color", ""))):
+				PALETTE[n] = data.colors[n]
+
+
+## The palette entry closest to a color: [name, distance].
+func nearest(c: Color) -> Array:
+	var best := ""
+	var best_d := INF
+	for n in PALETTE:
+		var pc := Color(str(PALETTE[n].color))
+		var d := Vector3(pc.r - c.r, pc.g - c.g, pc.b - c.b).length()
+		if d < best_d:
+			best_d = d
+			best = n
+	return [best, best_d]
+
+
+## Adds a color to the shared palette (saved in palette.json). Refuses near-duplicates.
+func add_color(raw_name: String, hex: String, group: String, description: String, rough := 0.85, metal := 0.0, glow := 0.0, force := false) -> Dictionary:
+	var n := raw_name.strip_edges().to_lower().replace(" ", "_")
+	if not RegEx.create_from_string("^[a-z][a-z0-9_]{1,30}$").search(n):
+		return {"ok": false, "text": "Nome non valido: lettere minuscole, numeri e _ (es. legno_noce)."}
+	if PALETTE.has(n):
+		return {"ok": false, "text": "'%s' esiste già nella palette (%s)." % [n, PALETTE[n].color]}
+	if not Color.html_is_valid(hex):
+		return {"ok": false, "text": "Colore non valido: usa #rrggbb."}
+	if description.strip_edges() == "":
+		return {"ok": false, "text": "Serve una descrizione breve: a cosa serve questo colore."}
+	var c := Color(hex)
+	var near := nearest(c)
+	if near[1] < NEAR_DUPLICATE and not force:
+		return {"ok": false, "text": "Quasi uguale a '%s' (%s): usa quello. Se serve davvero un colore distinto, riprova con force=true." % [near[0], PALETTE[near[0]].color]}
+	var e := {"color": "#" + c.to_html(c.a < 0.999), "group": group.strip_edges() if group.strip_edges() != "" else "altro", "description": description.strip_edges().left(120), "rough": clampf(rough, 0.0, 1.0)}
+	if metal > 0.0:
+		e["metal"] = clampf(metal, 0.0, 1.0)
+	if glow > 0.0:
+		e["glow"] = clampf(glow, 0.0, 5.0)
+	PALETTE[n] = e
+	var data = JSON.parse_string(FileAccess.get_file_as_string(PALETTE_FILE)) if FileAccess.file_exists(PALETTE_FILE) else null
+	if not data is Dictionary:
+		data = {"colors": {}}
+	if not data.get("colors") is Dictionary:
+		data["colors"] = {}
+	data.colors[n] = e
+	var f := FileAccess.open(PALETTE_FILE, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(data, "\t"))
+		f.close()
+	return {"ok": true, "text": "Aggiunto '%s' (%s) alla palette, gruppo %s. Usalo come \"mat\": \"%s\"." % [n, e.color, e.group, n]}
+
+
+## The palette by group, for the agents' prompt.
+func palette_text() -> String:
+	var groups := {}
+	for n in PALETTE:
+		var g := str(PALETTE[n].get("group", "altro"))
+		if not groups.has(g):
+			groups[g] = []
+		var e: Dictionary = PALETTE[n]
+		var extra := " (luminoso)" if e.has("glow") else ""
+		var desc := str(e.get("description", ""))
+		groups[g].append("%s %s%s%s" % [n, e.color, extra, (": " + desc) if desc != "" else ""])
+	var lines := PackedStringArray()
+	for g in groups:
+		lines.append("  %s: %s" % [g, "; ".join(PackedStringArray(groups[g]))])
+	return "\n".join(lines)
 
 
 # ================================================================ materials

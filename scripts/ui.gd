@@ -39,7 +39,12 @@ var chat_input: LineEdit
 var code_panel: PanelContainer
 var code_edit: CodeEdit
 var code_output: Label
-var status_label: Label
+var status_panel: PanelContainer
+const HUD_MUTED := Color(0.62, 0.67, 0.74)
+const HUD_BUSY := Color(1.0, 0.82, 0.48)
+var _hud_right: Dictionary
+var _hud_left: Dictionary
+var _hud_key := ""
 var menu      # settings_menu.gd
 var main      # main.gd
 var ui_scale := 1.0   # user preference on top of the screen's own scale (Retina = 2x)
@@ -55,30 +60,17 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SETTINGS_PATH) == OK:
 		ui_scale = float(cfg.get_value("ui", "scale", 1.0))
+		if cfg.has_section_key("chat", "filter") and cfg.get_value("chat", "filter") is Dictionary:
+			chat_filter.merge(cfg.get_value("chat", "filter"), true)
 	apply_scale()
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 
-	var help := Label.new()
-	help.text = HELP
-	help.position = Vector2(16, 12)
-	help.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-	help.add_theme_font_size_override("font_size", 14)
-	root.add_child(help)
-
-	status_label = Label.new()
-	status_label.anchor_left = 1.0
-	status_label.anchor_right = 1.0
-	status_label.offset_left = -440
-	status_label.offset_right = -16
-	status_label.offset_top = 12
-	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status_label.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0, 0.9))
-	status_label.add_theme_font_size_override("font_size", 15)
-	root.add_child(status_label)
+	# --- status panels: builders top right (with time and spending), NPCs top left
+	_hud_right = _hud_panel(root, false)
+	_hud_left = _hud_panel(root, true)
 
 	var cross := Label.new()
 	cross.text = "+"
@@ -105,6 +97,32 @@ func _ready() -> void:
 	root.add_child(chat_panel)
 	var vb := VBoxContainer.new()
 	chat_panel.add_child(vb)
+	# filters: what the chat shows besides the conversation with you
+	var chips := HBoxContainer.new()
+	chips.add_theme_constant_override("separation", 4)
+	vb.add_child(chips)
+	var show_l := Label.new()
+	show_l.text = "Mostra"
+	show_l.add_theme_font_size_override("font_size", 11)
+	show_l.add_theme_color_override("font_color", HUD_MUTED)
+	chips.add_child(show_l)
+	for k in CHAT_KINDS:
+		var c := Button.new()
+		c.text = CHAT_KINDS[k]
+		c.toggle_mode = true
+		c.focus_mode = Control.FOCUS_NONE
+		c.add_theme_font_size_override("font_size", 11)
+		c.add_theme_stylebox_override("normal", _chip_style(false))
+		c.add_theme_stylebox_override("hover", _chip_style(false))
+		c.add_theme_stylebox_override("pressed", _chip_style(true))
+		c.add_theme_stylebox_override("hover_pressed", _chip_style(true))
+		c.add_theme_color_override("font_color", HUD_MUTED)
+		c.add_theme_color_override("font_pressed_color", Color.WHITE)
+		c.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
+		c.button_pressed = chat_filter[k]
+		c.toggled.connect(func(on): set_chat_filter(k, on))
+		chips.add_child(c)
+		_chips[k] = c
 	chat_log = RichTextLabel.new()
 	chat_log.bbcode_enabled = true
 	chat_log.scroll_following = true
@@ -115,7 +133,7 @@ func _ready() -> void:
 	chat_log.add_theme_font_size_override("italics_font_size", 12)
 	vb.add_child(chat_log)
 	chat_input = LineEdit.new()
-	chat_input.placeholder_text = "Premi Invio per scrivere all'agente..."
+	chat_input.placeholder_text = "Invio per scrivere (@Nome per un agente) · Esc menu e comandi"
 	chat_input.add_theme_font_size_override("font_size", 13)
 	chat_input.text_submitted.connect(_on_chat_submitted)
 	vb.add_child(chat_input)
@@ -215,13 +233,74 @@ func _highlighter() -> CodeHighlighter:
 	return hl
 
 
+## Kinds of chat lines that can be hidden (the conversation with the player always shows).
+const CHAT_KINDS := {"squadra": "Squadra", "azioni": "Azioni", "pensieri": "Pensieri", "sistema": "Sistema"}
+const CHAT_KEEP := 400
+var chat_filter := {"squadra": true, "azioni": false, "pensieri": false, "sistema": true}
+var _chat_entries: Array = []   # [author, text], also the hidden ones
+var _chips := {}
+
+
+func _chip_style(on: bool) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.3, 0.8, 1.0, 0.28) if on else Color(1, 1, 1, 0.05)
+	sb.set_corner_radius_all(9)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 1
+	sb.content_margin_bottom = 2
+	return sb
+
+
+static func chat_kind(author: String) -> String:
+	if author == "Azione":
+		return "azioni"
+	if author == "Pensiero":
+		return "pensieri"
+	if author == "Sistema":
+		return "sistema"
+	if "→" in author:
+		return "squadra"
+	return ""   # you, and agents talking to you
+
+
 func add_chat(author: String, text: String) -> void:
+	_chat_entries.append([author, text])
+	if _chat_entries.size() > CHAT_KEEP:
+		_chat_entries = _chat_entries.slice(_chat_entries.size() - CHAT_KEEP)
+	if _shown(author):
+		_chat_line(author, text)
+
+
+func _shown(author: String) -> bool:
+	var k := chat_kind(author)
+	return k == "" or chat_filter.get(k, true)
+
+
+func _chat_line(author: String, text: String) -> void:
 	var color: String = author_colors.get(author.get_slice(" ", 0), "#dddddd")
 	var safe := text.replace("[", "[lb]")
 	if author in ["Azione", "Pensiero"]:
 		chat_log.append_text("[color=%s][i]%s[/i][/color]\n" % [color, safe])
 	else:
 		chat_log.append_text("[color=%s][b]%s:[/b][/color] %s\n" % [color, author, safe])
+
+
+## Shows or hides a kind of messages (old ones too) and remembers the choice.
+func set_chat_filter(kind: String, on: bool) -> void:
+	if chat_filter.get(kind) == on:
+		return
+	chat_filter[kind] = on
+	if _chips.has(kind) and _chips[kind].button_pressed != on:
+		_chips[kind].set_pressed_no_signal(on)
+	chat_log.clear()
+	for e in _chat_entries:
+		if _shown(e[0]):
+			_chat_line(e[0], e[1])
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS_PATH)
+	cfg.set_value("chat", "filter", chat_filter)
+	cfg.save(SETTINGS_PATH)
 
 
 func show_photo(author: String, img: Image) -> void:
@@ -257,8 +336,122 @@ func set_ui_scale(value: float) -> void:
 	cfg.save(SETTINGS_PATH)
 
 
-func set_status(text: String) -> void:
-	status_label.text = text
+func _hud_label(size: int, color: Color) -> Label:
+	var l := Label.new()
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+
+func _hud_rule() -> Control:
+	var r := ColorRect.new()
+	r.color = Color(1, 1, 1, 0.08)
+	r.custom_minimum_size = Vector2(0, 1)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return r
+
+
+## One status panel: a header (title and a value on the right), a row per agent, a footer.
+func _hud_panel(root: Control, left: bool) -> Dictionary:
+	var panel := PanelContainer.new()
+	if left:
+		panel.offset_left = 16
+		panel.offset_right = 16 + 240
+	else:
+		panel.anchor_left = 1.0
+		panel.anchor_right = 1.0
+		panel.offset_left = -16 - 270
+		panel.offset_right = -16
+	panel.offset_top = 14
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var st := _panel_style()
+	st.bg_color = Color(0.03, 0.04, 0.07, 0.6)
+	st.content_margin_left = 14
+	st.content_margin_right = 14
+	st.content_margin_top = 10
+	st.content_margin_bottom = 10
+	panel.add_theme_stylebox_override("panel", st)
+	root.add_child(panel)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(col)
+	var head := HBoxContainer.new()
+	col.add_child(head)
+	var title := _hud_label(13 if left else 20, HUD_MUTED if left else Color(0.95, 0.97, 1.0))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var value := _hud_label(13, HUD_MUTED)
+	value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(value)
+	col.add_child(_hud_rule())
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 5)
+	col.add_child(grid)
+	var rule := _hud_rule()
+	col.add_child(rule)
+	var footer := _hud_label(12, HUD_MUTED)
+	footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(footer)
+	return {"panel": panel, "title": title, "value": value, "grid": grid, "rule": rule, "footer": footer}
+
+
+func _hud_rows(grid: GridContainer, rows: Array) -> void:
+	if grid.get_child_count() != rows.size() * 3:
+		for c in grid.get_children():
+			grid.remove_child(c)
+			c.queue_free()
+		for i in rows.size():
+			var dot := ColorRect.new()
+			dot.custom_minimum_size = Vector2(7, 7)
+			dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			grid.add_child(dot)
+			var nm := _hud_label(14, Color.WHITE)
+			nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			grid.add_child(nm)
+			var st := _hud_label(13, HUD_MUTED)
+			st.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			st.custom_minimum_size.x = 100
+			st.clip_text = true
+			st.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			grid.add_child(st)
+	for i in rows.size():
+		var a: Array = rows[i]
+		var dot: ColorRect = grid.get_child(i * 3)
+		var nm: Label = grid.get_child(i * 3 + 1)
+		var st: Label = grid.get_child(i * 3 + 2)
+		dot.color = a[1]
+		nm.text = a[0]
+		nm.add_theme_color_override("font_color", Color(a[1]).lightened(0.25))
+		var busy: bool = a[2] != ""
+		st.text = a[2] if busy else "in ascolto"
+		st.add_theme_color_override("font_color", HUD_BUSY if busy else Color(HUD_MUTED, 0.6))
+
+
+## Updates the status panels. d = {time, spend, over, agents: [[name, color, status]],
+## footer, npcs: [[name, color, status]], npc_footer}. Rebuilt only when something changed.
+func set_hud(d: Dictionary) -> void:
+	var key := str(d)
+	if key == _hud_key:
+		return
+	_hud_key = key
+	var r: Dictionary = _hud_right
+	r.title.text = d.time
+	r.value.text = d.spend
+	r.value.add_theme_color_override("font_color", Color(1, 0.48, 0.48) if d.over else HUD_MUTED)
+	_hud_rows(r.grid, d.agents)
+	r.footer.text = d.footer
+	var l: Dictionary = _hud_left
+	var npcs: Array = d.npcs
+	l.panel.visible = not npcs.is_empty()
+	l.title.text = "NPC"
+	l.value.text = "%d nel mondo" % npcs.size()
+	_hud_rows(l.grid, npcs)
+	l.footer.text = d.npc_footer
 
 
 func show_code_result(ok: bool, text: String) -> void:
