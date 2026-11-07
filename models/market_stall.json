@@ -1,11 +1,11 @@
 {
-	"author": "Scultore",
-	"description": "Bancarella da mercato: banco in legno, tettoia rossa inclinata, retro in legno, casse con frutta. 3.0x2.55x2.0 m, fronte +Z.",
-	"name": "bancarella_mercato",
+	"author": "Sculptor",
+	"description": "Market stall: wooden counter, slanted red awning, wooden back, crates with fruit. 3.0x2.55x2.0 m, front +Z.",
+	"name": "market_stall",
 	"parts": [
 		{
-			"id": "palo",
-			"mat": "legno",
+			"id": "post",
+			"mat": "wood",
 			"mirror": "xz",
 			"positions": [
 				[
@@ -22,8 +22,8 @@
 			]
 		},
 		{
-			"id": "banco",
-			"mat": "legno_chiaro",
+			"id": "counter",
+			"mat": "light_wood",
 			"position": [
 				0.0,
 				0.0,
@@ -37,8 +37,8 @@
 			]
 		},
 		{
-			"id": "piano",
-			"mat": "legno",
+			"id": "top",
+			"mat": "wood",
 			"position": [
 				0.0,
 				0.85,
@@ -54,9 +54,9 @@
 		{
 			"depth": 1.8,
 			"height": 0.35,
-			"id": "tettoia",
+			"id": "awning",
 			"kind": "shed",
-			"mat": "tessuto_rosso",
+			"mat": "red_fabric",
 			"overhang": 0.1,
 			"position": [
 				0.0,
@@ -67,8 +67,8 @@
 			"width": 2.8
 		},
 		{
-			"id": "cassa",
-			"mat": "legno",
+			"id": "crate",
+			"mat": "wood",
 			"positions": [
 				[
 					-0.7,
@@ -90,8 +90,8 @@
 		},
 		{
 			"detail": 2.0,
-			"id": "frutta",
-			"mat": "foglie_autunno",
+			"id": "fruit",
+			"mat": "autumn_leaves",
 			"positions": [
 				[
 					-0.7,
@@ -113,8 +113,8 @@
 			"shape": "sphere"
 		},
 		{
-			"id": "retro",
-			"mat": "legno",
+			"id": "back_panel",
+			"mat": "wood",
 			"position": [
 				0.0,
 				0.9,
@@ -129,5 +129,5 @@
 		}
 	],
 	"saved": "2026-11-07T12:47:30",
-	"tags": "mercato bancarella negozio piazza"
+	"tags": "market stall shop square"
 }

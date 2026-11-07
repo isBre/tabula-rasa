@@ -1,6 +1,8 @@
 extends Node
 ## Sky, sun, time of day and ground style. Controlled by the agents (set_environment)
-## and by the player (/ora, /ciclo, /terreno, /nebbia). Saved with the world.
+## and by the player (/time, /cycle, /ground, /fog). Saved with the world.
+
+const Legacy := preload("res://scripts/legacy.gd")
 
 const GROUND_SHADER := """
 shader_type spatial;
@@ -33,12 +35,12 @@ void fragment() {
 
 ## name -> [base color, line darkening, neon glow]
 const GROUNDS := {
-	"griglia": ["#090b12", 0.0, 1.0],
-	"prato": ["#6aa84f", 0.10, 0.0],
-	"sabbia": ["#e0c58f", 0.08, 0.0],
-	"neve": ["#eef2f5", 0.05, 0.0],
-	"pietra": ["#8c8f94", 0.10, 0.0],
-	"terra": ["#8b6b47", 0.10, 0.0],
+	"grid": ["#090b12", 0.0, 1.0],
+	"grass": ["#6aa84f", 0.10, 0.0],
+	"sand": ["#e0c58f", 0.08, 0.0],
+	"snow": ["#eef2f5", 0.05, 0.0],
+	"stone": ["#8c8f94", 0.10, 0.0],
+	"dirt": ["#8b6b47", 0.10, 0.0],
 }
 
 ## hour, sky top, horizon, sun energy, ambient energy
@@ -56,7 +58,7 @@ const KEYS := [
 var time_of_day := 10.5
 var cycle_minutes := 0.0
 var fog := 0.15
-var ground := "prato"
+var ground := "grass"
 
 var env: Environment
 var sky_mat: ProceduralSkyMaterial
@@ -124,22 +126,22 @@ func set_values(args: Dictionary) -> Dictionary:
 	var changed := PackedStringArray()
 	if args.has("time_of_day"):
 		time_of_day = fposmod(float(args["time_of_day"]), 24.0)
-		changed.append("ora %s" % clock())
+		changed.append("time %s" % clock())
 	if args.has("cycle_minutes"):
 		cycle_minutes = clampf(float(args["cycle_minutes"]), 0.0, 240.0)
-		changed.append("ciclo " + ("fermo" if cycle_minutes == 0.0 else "%d min" % cycle_minutes))
+		changed.append("cycle " + ("stopped" if cycle_minutes == 0.0 else "%d min" % cycle_minutes))
 	if args.has("fog"):
 		fog = clampf(float(args["fog"]), 0.0, 1.0)
-		changed.append("nebbia %.2f" % fog)
+		changed.append("fog %.2f" % fog)
 	if args.has("ground"):
-		var g := str(args["ground"])
+		var g := Legacy.ground(str(args["ground"]).to_lower())
 		if not GROUNDS.has(g):
-			return {"ok": false, "text": "Terreno '%s' sconosciuto. Valori: %s" % [g, ", ".join(PackedStringArray(GROUNDS.keys()))]}
+			return {"ok": false, "text": "Unknown ground '%s'. Values: %s" % [g, ", ".join(PackedStringArray(GROUNDS.keys()))]}
 		ground = g
-		changed.append("terreno " + g)
+		changed.append("ground " + g)
 		_apply_ground()
 	_apply_time()
-	return {"ok": true, "text": "Ambiente aggiornato: " + (", ".join(changed) if not changed.is_empty() else "niente da cambiare")}
+	return {"ok": true, "text": "Environment updated: " + (", ".join(changed) if not changed.is_empty() else "nothing to change")}
 
 
 func clock() -> String:
@@ -148,7 +150,7 @@ func clock() -> String:
 
 
 func describe() -> String:
-	return "ore %s (%s), terreno %s, nebbia %.2f" % [clock(), "ciclo fermo" if cycle_minutes == 0.0 else "giorno completo in %d min" % cycle_minutes, ground, fog]
+	return "time %s (%s), ground %s, fog %.2f" % [clock(), "cycle stopped" if cycle_minutes == 0.0 else "full day in %d min" % cycle_minutes, ground, fog]
 
 
 func serialize() -> Dictionary:

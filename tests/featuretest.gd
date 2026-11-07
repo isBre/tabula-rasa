@@ -18,18 +18,18 @@ func _ready() -> void:
 	await get_tree().create_timer(0.3).timeout
 
 	# --- history / undo
-	var r := World.run_script({"code": ShapesTest.COTTAGE, "position": [0, 0, -8], "name": "casetta"}, "Architetto")
+	var r := World.run_script({"code": ShapesTest.COTTAGE, "position": [0, 0, -8], "name": "cottage"}, "Architect")
 	var cottage: String = r.text.get_slice(" ", 1)
-	history.commit("Architetto", "run_script " + cottage)
-	World.spawn_primitive({"shape": "box", "position": [4, 0.5, -4], "name": "cassa"}, "Decoratore")
-	history.commit("Decoratore", "spawn cassa")
+	history.commit("Architect", "run_script " + cottage)
+	World.spawn_primitive({"shape": "box", "position": [4, 0.5, -4], "name": "crate"}, "Decorator")
+	history.commit("Decorator", "spawn crate")
 	_out.append("objects before undo: %d" % World.entities.size())
 	_out.append(history.undo())
 	_out.append("objects after undo: %d (cottage still there: %s)" % [World.entities.size(), World._get_entity(cottage) != null])
 	_out.append(history.list_text())
 
 	# --- environment
-	_log("env night", env.set_values({"time_of_day": 22, "ground": "prato", "fog": 0.2}))
+	_log("env night", env.set_values({"time_of_day": 22, "ground": "grass", "fog": 0.2}))
 	await get_tree().process_frame
 	var night: Image = await team.photographer.capture(Vector3(6, 4, 2), Vector3(0, 1.5, -8))
 	night.save_jpg(ProjectSettings.globalize_path("res://tests/featuretest_night.jpg"))
@@ -41,11 +41,11 @@ func _ready() -> void:
 	_out.append("describe env: " + env.describe())
 
 	# --- blueprints
-	_log("save blueprint", World.save_blueprint({"id": cottage, "name": "Casetta intonaco", "description": "casetta con porta, due finestre, tetto a due falde e camino"}, "Architetto"))
-	_log("spawn blueprint", World.spawn_blueprint({"name": "casetta_intonaco", "position": [10, 0, -8], "rotation_deg": [0, 90, 0]}, "Decoratore"))
-	_log("spawn missing", World.spawn_blueprint({"name": "castello", "position": [0, 0, 0]}, "Decoratore"))
+	_log("save blueprint", World.save_blueprint({"id": cottage, "name": "Plastered cottage", "description": "cottage with a door, two windows, a gable roof and a chimney"}, "Architect"))
+	_log("spawn blueprint", World.spawn_blueprint({"name": "plastered_cottage", "position": [10, 0, -8], "rotation_deg": [0, 90, 0]}, "Decorator"))
+	_log("spawn missing", World.spawn_blueprint({"name": "castle", "position": [0, 0, 0]}, "Decorator"))
 	_out.append("blueprints: " + str(World.list_blueprints().map(func(b): return b.name)))
-	_out.append("describe has blueprints: %s" % World.describe("Architetto").contains("Blueprint disponibili: casetta_intonaco"))
+	_out.append("describe has blueprints: %s" % World.describe("Architect").contains("Available blueprints: plastered_cottage"))
 
 	# --- build mode (programmatic)
 	build.toggle()
@@ -66,15 +66,15 @@ func _ready() -> void:
 
 	# --- costs
 	team.set_budget(0.001, false)
-	team.add_usage(team.find_brain("Architetto"), "claude-haiku-5-5", {"input_tokens": 3000, "output_tokens": 800, "cache_creation_input_tokens": 5000, "cache_read_input_tokens": 20000}, 1)
-	team.add_usage(team.find_brain("Ingegnere"), "claude-sonnet-5-5", {"input_tokens": 1000, "output_tokens": 500}, 0)
+	team.add_usage(team.find_brain("Architect"), "claude-haiku-5-5", {"input_tokens": 3000, "output_tokens": 800, "cache_creation_input_tokens": 5000, "cache_read_input_tokens": 20000}, 1)
+	team.add_usage(team.find_brain("Engineer"), "claude-sonnet-5-5", {"input_tokens": 1000, "output_tokens": 500}, 0)
 	_out.append(team.costs_text())
 	_out.append("over budget: %s, autonomy: %s" % [team.over_budget(), team.autonomy])
 
 	# --- save / load with environment
-	env.set_values({"time_of_day": 18.5, "ground": "sabbia"})
+	env.set_values({"time_of_day": 18.5, "ground": "sand"})
 	save_world("featuretest", true)
-	env.set_values({"time_of_day": 3, "ground": "neve"})
+	env.set_values({"time_of_day": 3, "ground": "snow"})
 	load_world("featuretest", true)
 	_out.append("after load env: " + env.describe())
 	_out.append("=== DONE ===")

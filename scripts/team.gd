@@ -7,6 +7,7 @@ const BodyScript := preload("res://scripts/agent.gd")
 const PhotographerScript := preload("res://scripts/photographer.gd")
 const WalkTesterScript := preload("res://scripts/walk_tester.gd")
 const ROLES_FILE := "res://agents.json"
+const Legacy := preload("res://scripts/legacy.gd")
 const MAX_AGENTS := 8
 const REVIEW_DELAY := 6.0          # seconds after a teammate finishes before the critic looks
 const REVIEWS_PER_PLAYER_MESSAGE := 3
@@ -20,11 +21,11 @@ const PRICES := {
 	"claude-sonnet-5-5": [2.0, 10.0, 2.5, 0.20],
 	"claude-opus-5-5": [4.0, 20.0, 5.0, 0.40],
 }
-## Models the player can choose for an agent (menu > Agenti).
+## Models the player can choose for an agent (menu > Agents).
 const MODEL_CHOICES := {
-	"claude-haiku-5-5": "Haiku 5.5 · veloce ed economico",
-	"claude-sonnet-5-5": "Sonnet 5.5 · più bravo",
-	"claude-opus-5-5": "Opus 5.5 · il più capace, costoso",
+	"claude-haiku-5-5": "Haiku 5.5 · fast and cheap",
+	"claude-sonnet-5-5": "Sonnet 5.5 · smarter",
+	"claude-opus-5-5": "Opus 5.5 · the most capable, expensive",
 }
 const SETTINGS_PATH := "user://settings.cfg"
 const PALETTE := ["#c792ea", "#ff6b9a", "#ffd166", "#06d6a0", "#f78c6b", "#a0c4ff"]
@@ -41,13 +42,13 @@ var usage_by_model := {}   # model id -> {calls, usd}
 var output_by_kind := {}   # OUTPUT_KINDS key -> {tokens, usd} (estimated split of the output)
 ## What the agents' output tokens go into (estimated from the length of each reply block).
 const OUTPUT_KINDS := {
-	"a_te": "Messaggi a te",
-	"tra_agenti": "Messaggi tra agenti",
-	"pensieri": "Pensieri (testo libero)",
-	"codice": "Codice (script)",
-	"modelli": "Modelli 3D (ricette)",
-	"lavagna": "Lavagna",
-	"strumenti": "Altri strumenti (piazzare, misurare, foto...)",
+	"to_player": "Messages to you",
+	"between_agents": "Messages between agents",
+	"thoughts": "Thoughts (free text)",
+	"code": "Code (scripts)",
+	"models": "3D models (recipes)",
+	"board": "Board",
+	"tools": "Other tools (placing, measuring, photos...)",
 }
 var _review_queue: Array = []
 var _review_timer: SceneTreeTimer
@@ -91,29 +92,29 @@ func load_api_key() -> void:
 func load_default_agents() -> void:
 	var data = World.load_json(ROLES_FILE)
 	if data == null:
-		World.chat_message.emit("Sistema", "agents.json mancante o non valido: nessun agente predefinito.")
+		World.chat_message.emit("System", "agents.json missing or not valid: no default agents.")
 		return
 	for def in data.get("agents", []):
 		if def is Dictionary:
 			var err := spawn_agent(def, false)
 			if err != "":
-				World.chat_message.emit("Sistema", err)
+				World.chat_message.emit("System", err)
 
 
 # ---------------------------------------------------------------- agents
 
 func spawn_agent(def: Dictionary, custom: bool) -> String:
 	if brains.size() >= MAX_AGENTS:
-		return "Massimo %d agenti." % MAX_AGENTS
+		return "At most %d agents." % MAX_AGENTS
 	var agent_name := str(def.get("name", "")).strip_edges().replace(" ", "_")
 	if agent_name == "" or agent_name.length() > 20 or "@" in agent_name:
-		return "Nome agente non valido: '%s'." % agent_name
+		return "Invalid agent name: '%s'." % agent_name
 	agent_name = agent_name[0].to_upper() + agent_name.substr(1)
-	if find_brain(agent_name) != null or agent_name.to_lower() in ["tutti", "giocatore", "player", "tu", "sistema"]:
-		return "Esiste già un agente (o una parola riservata) '%s'." % agent_name
+	if find_brain(agent_name) != null or agent_name.to_lower() in ["all", "player", "you", "system"]:
+		return "There is already an agent (or a reserved word) '%s'." % agent_name
 	var role := str(def.get("role", "")).strip_edges()
 	if role == "":
-		return "Serve una descrizione del ruolo per %s." % agent_name
+		return "%s needs a role description." % agent_name
 	var color := Color.from_string(str(def.get("color", "")), Color.from_string(PALETTE[brains.size() % PALETTE.size()], Color.WHITE))
 
 	var body = BodyScript.new()
@@ -165,16 +166,16 @@ func spawn_agent(def: Dictionary, custom: bool) -> String:
 func remove_agent(agent_name: String, silent := false) -> String:
 	var b = find_brain(agent_name)
 	if b == null:
-		return "Nessun agente si chiama '%s'." % agent_name
+		return "No agent is called '%s'." % agent_name
 	if not b.is_custom and not silent:
-		return "%s è un agente predefinito: puoi nasconderlo dal menu (Esc > Agenti), non rimuoverlo." % b.agent_name
+		return "%s is a built-in agent: you can hide it from the menu (Esc > Agents), not remove it." % b.agent_name
 	brains.erase(b)
 	World.agents.erase(b.agent_name)
 	b.body.queue_free()
 	b.queue_free()
 	if not silent:
 		for other in brains:
-			other.add_context("[%s ha lasciato la squadra]" % b.agent_name)
+			other.add_context("[%s left the team]" % b.agent_name)
 	return ""
 
 
@@ -192,16 +193,16 @@ func set_hidden(b, on: bool, quiet := false) -> void:
 		return
 	for other in brains:
 		if other != b:
-			other.add_context("[%s %s]" % [b.agent_name, "si è assentato: per ora non risponde e non lavora" if on else "è tornato nel mondo"])
+			other.add_context("[%s %s]" % [b.agent_name, "stepped away: for now it doesn't answer or work" if on else "came back into the world"])
 
 
 ## Changes a custom agent (role, color, models, permissions): it is rebuilt where it stood.
 func update_agent(agent_name: String, def: Dictionary) -> String:
 	var b = find_brain(agent_name)
 	if b == null:
-		return "Nessun agente si chiama '%s'." % agent_name
+		return "No agent is called '%s'." % agent_name
 	if not b.is_custom:
-		return "Gli agenti predefiniti non si modificano (puoi cambiarne il modello o nasconderli)."
+		return "Built-in agents can't be edited (you can change their model or hide them)."
 	var pos: Vector3 = b.body.position
 	var was_hidden: bool = b.hidden
 	var d: Dictionary = b.to_def()
@@ -219,7 +220,7 @@ func update_agent(agent_name: String, def: Dictionary) -> String:
 	brains.insert(idx, nb)
 	for other in brains:
 		if other != nb:
-			other.add_context("[Il giocatore ha cambiato %s. Ruolo ora: %s]" % [nb.agent_name, nb.role])
+			other.add_context("[The player changed %s. Role now: %s]" % [nb.agent_name, nb.role])
 	return ""
 
 
@@ -237,7 +238,7 @@ func set_models(b, model_id: String, for_player: String) -> void:
 	cfg.save(SETTINGS_PATH)
 
 
-## Appearance (menu > Agenti > Modifica). Built-in agents remember it on this computer,
+## Appearance (menu > Agents > Edit). Built-in agents remember it on this computer,
 ## custom ones in the world save.
 func set_look(b, look: Dictionary) -> void:
 	b.body.set_look(look)
@@ -251,17 +252,25 @@ func set_look(b, look: Dictionary) -> void:
 
 func _saved_look(agent_name: String) -> Dictionary:
 	var cfg := ConfigFile.new()
-	if cfg.load(SETTINGS_PATH) != OK or not cfg.has_section_key("looks", agent_name):
+	if cfg.load(SETTINGS_PATH) != OK:
 		return {}
-	var v = cfg.get_value("looks", agent_name)
+	var key := Legacy.settings_key(cfg, "looks", agent_name)
+	if key == "":
+		return {}
+	var v = cfg.get_value("looks", key)
+	if v is Dictionary:
+		v = Legacy.look(v)
 	return v if v is Dictionary else {}
 
 
 func _apply_model_choice(b) -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(SETTINGS_PATH) != OK or not cfg.has_section_key("models", b.agent_name):
+	if cfg.load(SETTINGS_PATH) != OK:
 		return
-	var v = cfg.get_value("models", b.agent_name)
+	var key := Legacy.settings_key(cfg, "models", b.agent_name)
+	if key == "":
+		return
+	var v = cfg.get_value("models", key)
 	if v is Array and v.size() == 2 and MODEL_CHOICES.has(str(v[0])):
 		b.model = str(v[0])
 		b.current_model = b.model
@@ -295,7 +304,7 @@ func lead():
 
 func lead_name() -> String:
 	var l = lead()
-	return l.agent_name if l else "nessuno"
+	return l.agent_name if l else "nobody"
 
 
 func names_list() -> String:
@@ -307,13 +316,13 @@ func describe_team(viewer) -> String:
 	for b in brains:
 		if b.hidden:
 			continue
-		var tag := " (tu)" if b == viewer else ""
+		var tag := " (you)" if b == viewer else ""
 		if b.is_lead:
 			tag += " [lead]"
 		if not b.can_build:
-			tag += " [NPC: non costruisce]"
+			tag += " [NPC: doesn't build]"
 		elif not b.can_model:
-			tag += " [non crea modelli]"
+			tag += " [doesn't make models]"
 		lines.append("- %s%s: %s" % [b.agent_name, tag, b.role])
 	return "\n".join(lines)
 
@@ -322,7 +331,7 @@ func status_line() -> String:
 	var parts := PackedStringArray()
 	for b in brains:
 		if not b.hidden:
-			parts.append("%s · %s" % [b.agent_name, b.status_text if b.status_text != "" else "in ascolto"])
+			parts.append("%s · %s" % [b.agent_name, b.status_text if b.status_text != "" else "listening"])
 	return "\n".join(parts)
 
 
@@ -335,8 +344,8 @@ func status_bbcode() -> String:
 		var st: String = b.status_text
 		var name_col: String = b.color.lightened(0.15).to_html(false)
 		var npc := " [color=#7d8799][font_size=11]NPC[/font_size][/color]" if not b.can_build else ""
-		rows += "[cell][color=#%s][b]%s[/b][/color]%s[/cell][cell][color=%s]%s[/color][/cell]" % [name_col, b.agent_name, npc, "#ffd27a" if st != "" else "#6f7888", st if st != "" else "in ascolto"]
-	return "[table=2]" + rows + "[/table]" if rows != "" else "[color=#6f7888]nessun agente attivo[/color]"
+		rows += "[cell][color=#%s][b]%s[/b][/color]%s[/cell][cell][color=%s]%s[/color][/cell]" % [name_col, b.agent_name, npc, "#ffd27a" if st != "" else "#6f7888", st if st != "" else "listening"]
+	return "[table=2]" + rows + "[/table]" if rows != "" else "[color=#6f7888]no active agents[/color]"
 
 
 # ---------------------------------------------------------------- costs
@@ -373,7 +382,7 @@ func add_usage(brain, model_name: String, u: Dictionary, images: int, split := {
 	if over_budget() and not _budget_warned:
 		_budget_warned = true
 		autonomy = false
-		World.chat_message.emit("Sistema", "Tetto di spesa raggiunto ($%.2f su $%.2f): gli agenti si fermano. Alzalo con /budget N (in dollari)." % [spent_usd, budget_usd])
+		World.chat_message.emit("System", "Spending cap reached ($%.2f of $%.2f): the agents stop. Raise it with /budget N (in dollars)." % [spent_usd, budget_usd])
 
 
 const USAGE_LOG := "res://logs/usage.csv"
@@ -434,7 +443,7 @@ func set_strong_plan_only(on: bool) -> void:
 	cfg.save(SETTINGS_PATH)
 
 
-## Every call ever logged in logs/usage.csv, as dictionaries (for the Costi tab).
+## Every call ever logged in logs/usage.csv, as dictionaries (for the Costs tab).
 func read_usage_log() -> Array:
 	var out: Array = []
 	var path := ProjectSettings.globalize_path(USAGE_LOG)
@@ -453,8 +462,9 @@ func read_usage_log() -> Array:
 			for item in parts[9].split(";", false):
 				var kv := item.split(":")
 				if kv.size() == 2:
-					kinds[kv[0]] = int(kv[1])
-		out.append({"time": parts[0], "agent": parts[1], "model": parts[2], "input": int(parts[3]), "output": int(parts[4]),
+					var kind: String = Legacy.OUTPUT_KINDS.get(kv[0], kv[0])
+					kinds[kind] = kinds.get(kind, 0) + int(kv[1])
+		out.append({"time": parts[0], "agent": Legacy.agent(parts[1]), "model": parts[2], "input": int(parts[3]), "output": int(parts[4]),
 			"cache_write": int(parts[5]), "cache_read": int(parts[6]), "images": int(parts[7]), "usd": float(parts[8]), "out_kinds": kinds})
 	f.close()
 	return out
@@ -472,10 +482,10 @@ func set_budget(usd: float, remember := true) -> void:
 
 
 func costs_text() -> String:
-	var lines := PackedStringArray(["Spesa stimata della sessione: $%.4f (tetto $%.2f)" % [spent_usd, budget_usd]])
+	var lines := PackedStringArray(["Estimated spending this session: $%.4f (cap $%.2f)" % [spent_usd, budget_usd]])
 	for agent_name in usage:
 		var r: Dictionary = usage[agent_name]
-		lines.append("- %s: $%.4f · %d chiamate · input %d (+ cache: scritti %d, letti %d) · output %d · immagini %d" % [agent_name, r["usd"], r["calls"], r["input"], r["cache_write"], r["cache_read"], r["output"], r["images"]])
+		lines.append("- %s: $%.4f · %d calls · input %d (+ cache: written %d, read %d) · output %d · images %d" % [agent_name, r["usd"], r["calls"], r["input"], r["cache_write"], r["cache_read"], r["output"], r["images"]])
 	return "\n".join(lines)
 
 
@@ -483,27 +493,27 @@ func costs_text() -> String:
 
 func route_player_message(text: String) -> void:
 	if brains.is_empty():
-		World.chat_message.emit("Sistema", "Non c'è nessun agente: creane uno con /nuovo Nome: descrizione")
+		World.chat_message.emit("System", "There are no agents: create one with /new Name: description")
 		return
 	if api_key == "":
-		World.chat_message.emit("Sistema", "Gli agenti non hanno una API key: vedi README (api_key.txt o ANTHROPIC_API_KEY).")
+		World.chat_message.emit("System", "The agents have no API key: see the README (api_key.txt or ANTHROPIC_API_KEY).")
 		return
 	var targets: Array = []
 	for m in _mention_re.search_all(text):
 		var who := m.get_string(1).to_lower()
-		if who == "tutti":
+		if who == "all":
 			targets = brains.filter(func(x): return not x.hidden)
 			break
 		var b = find_brain(who)
 		if b != null and b.hidden:
-			World.chat_message.emit("Sistema", "%s è nascosto: rimostralo dal menu (Esc > Agenti) per parlargli." % b.agent_name)
+			World.chat_message.emit("System", "%s is hidden: show it again from the menu (Esc > Agents) to talk to it." % b.agent_name)
 			continue
 		if b != null and not b in targets:
 			targets.append(b)
 	if targets.is_empty():
 		var l = lead()
 		if l == null:
-			World.chat_message.emit("Sistema", "Tutti gli agenti sono nascosti.")
+			World.chat_message.emit("System", "All the agents are hidden.")
 			return
 		targets = [l]
 	_review_budget = REVIEWS_PER_PLAYER_MESSAGE
@@ -511,27 +521,27 @@ func route_player_message(text: String) -> void:
 	for b in brains:
 		b.reset_agent_budget()
 		if b in targets:
-			b.queue_event("[Il giocatore ti dice]: " + text)
+			b.queue_event("[The player tells you]: " + text)
 		else:
-			b.add_context("[Il giocatore ha detto a %s]: %s" % [", ".join(names), text])
+			b.add_context("[The player said to %s]: %s" % [", ".join(names), text])
 
 
 func _on_said(from, to: String, text: String) -> void:
-	var target = find_brain(to) if to != "" and to.to_lower() != "tutti" else null
+	var target = find_brain(to) if to != "" and to.to_lower() != "all" else null
 	var label: String = from.agent_name
 	if target != null:
 		label += " → " + target.agent_name
-	elif to.to_lower() == "tutti":
-		label += " → tutti"
+	elif to.to_lower() == "all":
+		label += " → all"
 	World.chat_message.emit(label, text)
 	for b in brains:
 		if b == from:
 			continue
 		if b == target:
-			b.queue_agent_event("[%s ti dice]: %s" % [from.agent_name, text])
+			b.queue_agent_event("[%s tells you]: %s" % [from.agent_name, text])
 		else:
-			var dest: String = "a " + target.agent_name if target != null else ("a tutti" if to != "" else "al giocatore")
-			b.add_context("[%s ha detto %s]: %s" % [from.agent_name, dest, text])
+			var dest: String = "to " + target.agent_name if target != null else ("to everyone" if to != "" else "to the player")
+			b.add_context("[%s said %s]: %s" % [from.agent_name, dest, text])
 
 
 ## Called by an agent when its turn ends. Significant work by a builder triggers the
@@ -558,7 +568,7 @@ func on_turn_finished(brain, actions: Array) -> void:
 	_review_budget -= 1
 	var work := "; ".join(PackedStringArray(_review_queue))
 	_review_queue.clear()
-	reviewer.queue_event("[Revisione automatica] Lavoro appena finito da controllare: %s. Ispeziona gli oggetti nuovi o modificati (measure, inspect_visual, walk_test se sono da percorrere). Se trovi problemi concreti scrivi all'autore con say(to=Nome) cosa correggere e dove. Se è tutto a posto non scrivere a nessuno: rispondi solo con una breve frase di testo." % work)
+	reviewer.queue_event("[Automatic review] Work just finished, to check: %s. Inspect the new or changed objects (measure, inspect_visual, walk_test if they are meant to be walked). If you find concrete problems, tell the author with say(to=Name) what to fix and where. If everything is fine, don't write to anyone: just answer with a short sentence of text." % work)
 
 
 func set_follow(on: bool) -> void:

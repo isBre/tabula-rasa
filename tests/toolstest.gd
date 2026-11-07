@@ -12,7 +12,7 @@ func _ready() -> void:
 		return
 	World.reset_world()
 	team.autonomy = false
-	var arch = team.find_brain("Architetto")
+	var arch = team.find_brain("Architect")
 	await get_tree().create_timer(0.5).timeout
 
 	# stairs: 6 steps of 0.25 m up to a 1.5 m platform
@@ -46,10 +46,10 @@ func _ready():
 	top.position = Vector3(0, 0.75, -4.75)
 	add_child(top)
 """
-	var stairs_id := _t("stairs", World.run_script({"code": stairs, "position": [0, 0, -2], "name": "scala"}, "Architetto"))
-	var wall_id := _t("wall", World.spawn_primitive({"shape": "box", "position": [10, 1.5, -5], "size": [6, 3, 0.5], "color": "#888888", "name": "muro"}, "Architetto"))
-	var ball_id := _t("floating ball", World.spawn_primitive({"shape": "sphere", "position": [-6, 2, -4], "size": [1, 1, 1], "color": "#ff00ff", "name": "palla", "physics": "none"}, "Decoratore"))
-	_t("overlap box", World.spawn_primitive({"shape": "box", "position": [-6, 1.8, -4], "size": [1, 1, 1], "name": "cubo sovrapposto"}, "Decoratore"))
+	var stairs_id := _t("stairs", World.run_script({"code": stairs, "position": [0, 0, -2], "name": "stairs"}, "Architect"))
+	var wall_id := _t("wall", World.spawn_primitive({"shape": "box", "position": [10, 1.5, -5], "size": [6, 3, 0.5], "color": "#888888", "name": "wall"}, "Architect"))
+	var ball_id := _t("floating ball", World.spawn_primitive({"shape": "sphere", "position": [-6, 2, -4], "size": [1, 1, 1], "color": "#ff00ff", "name": "ball", "physics": "none"}, "Decorator"))
+	_t("overlap box", World.spawn_primitive({"shape": "box", "position": [-6, 1.8, -4], "size": [1, 1, 1], "name": "overlapping cube"}, "Decorator"))
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 
@@ -64,14 +64,14 @@ func _ready():
 	var sheet: Image = await team.photographer.contact_sheet(World.world_aabb(World._get_entity(stairs_id)), World.agents.values())
 	sheet.save_jpg(ProjectSettings.globalize_path("res://tests/toolstest_sheet.jpg"))
 
-	var spin_id := _t("spin script", World.run_script({"code": "extends Node3D\nvar speed := 1.0\nfunc _process(d):\n\trotate_y(d * speed)\n", "position": [5, 1, 5], "name": "trottola"}, "Ingegnere"))
-	World.attach_script({"id": spin_id, "code": "extends Node\nfunc _ready():\n\tprint('beh ok')\n"}, "Ingegnere")
-	_t("edit ok", World.edit_script({"id": spin_id, "old": "var speed := 1.0", "new": "var speed := 4.0"}, "Ingegnere"))
+	var spin_id := _t("spin script", World.run_script({"code": "extends Node3D\nvar speed := 1.0\nfunc _process(d):\n\trotate_y(d * speed)\n", "position": [5, 1, 5], "name": "spinning top"}, "Engineer"))
+	World.attach_script({"id": spin_id, "code": "extends Node\nfunc _ready():\n\tprint('beh ok')\n"}, "Engineer")
+	_t("edit ok", World.edit_script({"id": spin_id, "old": "var speed := 1.0", "new": "var speed := 4.0"}, "Engineer"))
 	_t("inspect after edit", World.inspect_object({"id": spin_id}))
-	_t("edit not found", World.edit_script({"id": spin_id, "old": "pippo", "new": "x"}, "Ingegnere"))
-	_t("edit breaks", World.edit_script({"id": spin_id, "old": "var speed := 4.0", "new": "var speed := = 4"}, "Ingegnere"))
-	_t("edit behavior", World.edit_script({"id": spin_id, "target": "behavior", "old": "beh ok", "new": "beh modificato"}, "Ingegnere"))
-	_t("edit primitive", World.edit_script({"id": wall_id, "old": "a", "new": "b"}, "Ingegnere"))
+	_t("edit not found", World.edit_script({"id": spin_id, "old": "foo", "new": "x"}, "Engineer"))
+	_t("edit breaks", World.edit_script({"id": spin_id, "old": "var speed := 4.0", "new": "var speed := = 4"}, "Engineer"))
+	_t("edit behavior", World.edit_script({"id": spin_id, "target": "behavior", "old": "beh ok", "new": "beh changed"}, "Engineer"))
+	_t("edit primitive", World.edit_script({"id": wall_id, "old": "a", "new": "b"}, "Engineer"))
 
 	_out.append("=== DONE ===")
 	var f := FileAccess.open("res://tests/toolstest_output.txt", FileAccess.WRITE)

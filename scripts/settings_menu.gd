@@ -117,39 +117,39 @@ func _build() -> void:
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tabs.custom_minimum_size = Vector2(0, 430)
 	vb.add_child(tabs)
-	var settings_tab := _tab(tabs, "Impostazioni")
-	var agents_tab := _tab(tabs, "Agenti")
-	_style_tab = _tab(tabs, "Stile")
-	_costs_tab = _tab(tabs, "Costi")
-	var commands_tab := _tab(tabs, "Comandi")
+	var settings_tab := _tab(tabs, "Settings")
+	var agents_tab := _tab(tabs, "Agents")
+	_style_tab = _tab(tabs, "Style")
+	_costs_tab = _tab(tabs, "Costs")
+	var commands_tab := _tab(tabs, "Commands")
 
-	_section(settings_tab, "Interfaccia e controlli")
-	_slider(settings_tab, "ui_scale", "Dimensione interfaccia", 0.7, 1.6, 0.05, func(v):
+	_section(settings_tab, "Interface and controls")
+	_slider(settings_tab, "ui_scale", "Interface size", 0.7, 1.6, 0.05, func(v):
 		main.ui.set_ui_scale(v), "%.2f")
-	_slider(settings_tab, "mouse", "Sensibilità mouse", 0.4, 2.5, 0.05, func(v):
+	_slider(settings_tab, "mouse", "Mouse sensitivity", 0.4, 2.5, 0.05, func(v):
 		main.player.mouse_sens = 0.0022 * v
 		_save_personal("controls", "mouse", v), "%.2f")
-	_slider(settings_tab, "fov", "Campo visivo", 60.0, 100.0, 1.0, func(v):
+	_slider(settings_tab, "fov", "Field of view", 60.0, 100.0, 1.0, func(v):
 		main.player.base_fov = v
 		_save_personal("controls", "fov", v), "%d°")
-	_check(settings_tab, "bob", "Oscillazione della camera", func(on):
+	_check(settings_tab, "bob", "Camera bob", func(on):
 		main.player.bob_amount = 0.035 if on else 0.0
 		_save_personal("controls", "bob", on))
 
-	_section(settings_tab, "Chat: cosa mostrare oltre alla conversazione con te")
+	_section(settings_tab, "Chat: what to show besides the conversation with you")
 	for k in main.ui.CHAT_KINDS:
-		var desc: String = {"squadra": "Squadra (gli agenti che parlano tra loro)", "azioni": "Azioni (ogni strumento che usano)", "pensieri": "Pensieri (le loro note interne)", "sistema": "Messaggi di sistema"}[k]
+		var desc: String = {"team": "Team (the agents talking to each other)", "actions": "Actions (every tool they use)", "thoughts": "Thoughts (their inner notes)", "system": "System messages"}[k]
 		_check(settings_tab, "chat_" + k, desc, func(on): main.ui.set_chat_filter(k, on))
 
-	_section(settings_tab, "Squadra")
-	_check(settings_tab, "autonomy", "Agenti: lavorano anche da soli", func(on): main.team.autonomy = on)
-	_check(settings_tab, "npc_autonomy", "NPC: vivono anche da soli", func(on): main.team.npc_autonomy = on)
-	_check(settings_tab, "follow", "Ti raggiungono quando ti allontani", func(on): main.team.set_follow(on))
+	_section(settings_tab, "Team")
+	_check(settings_tab, "autonomy", "Agents: also work on their own", func(on): main.team.autonomy = on)
+	_check(settings_tab, "npc_autonomy", "NPCs: also live on their own", func(on): main.team.npc_autonomy = on)
+	_check(settings_tab, "follow", "Catch up with you when you walk away", func(on): main.team.set_follow(on))
 
-	_section(settings_tab, "Mondo")
-	_slider(settings_tab, "time", "Ora del giorno", 0.0, 24.0, 0.25, func(v): main.env.set_values({"time_of_day": v}), "%05.2f")
-	_spin(settings_tab, "cycle", "Giorno completo in (min, 0 = fermo)", 0.0, 120.0, 1.0, func(v): main.env.set_values({"cycle_minutes": v}))
-	var row := _row(settings_tab, "Terreno")
+	_section(settings_tab, "World")
+	_slider(settings_tab, "time", "Time of day", 0.0, 24.0, 0.25, func(v): main.env.set_values({"time_of_day": v}), "%05.2f")
+	_spin(settings_tab, "cycle", "Full day in (min, 0 = stopped)", 0.0, 120.0, 1.0, func(v): main.env.set_values({"cycle_minutes": v}))
+	var row := _row(settings_tab, "Ground")
 	var opt := OptionButton.new()
 	for g in main.env.GROUNDS.keys():
 		opt.add_item(g)
@@ -166,33 +166,33 @@ func _build() -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 8)
 	vb.add_child(buttons)
-	_button(buttons, "Riprendi", close)
-	_button(buttons, "Salva mondo", func(): main.save_world("mondo", true))
-	_button(buttons, "Annulla modifica", func(): main._undo())
-	_button(buttons, "Reset totale", func(): _confirm.popup_centered())
-	_button(buttons, "Esci", func():
+	_button(buttons, "Resume", close)
+	_button(buttons, "Save world", func(): main.save_world("world", true))
+	_button(buttons, "Undo change", func(): main._undo())
+	_button(buttons, "Full reset", func(): _confirm.popup_centered())
+	_button(buttons, "Quit", func():
 		main.save_world(main.AUTOSAVE, false)
 		get_tree().quit())
 	_confirm = ConfirmationDialog.new()
-	_confirm.title = "Reset totale"
-	_confirm.dialog_text = "Svuotare il mondo e cancellare la memoria degli agenti, la lavagna e la cronologia?\nIl mondo attuale verrà salvato in saves/prima_del_reset.json."
-	_confirm.ok_button_text = "Azzera tutto"
-	_confirm.cancel_button_text = "Annulla"
+	_confirm.title = "Full reset"
+	_confirm.dialog_text = "Empty the world and erase the agents' memory, the board and the history?\nThe current world will be saved to saves/before_reset.json."
+	_confirm.ok_button_text = "Wipe everything"
+	_confirm.cancel_button_text = "Cancel"
 	_confirm.confirmed.connect(func():
 		main.full_reset()
 		close())
 	add_child(_confirm)
 	_remove_confirm = ConfirmationDialog.new()
-	_remove_confirm.title = "Rimuovi agente"
-	_remove_confirm.ok_button_text = "Rimuovi"
-	_remove_confirm.cancel_button_text = "Annulla"
+	_remove_confirm.title = "Remove agent"
+	_remove_confirm.ok_button_text = "Remove"
+	_remove_confirm.cancel_button_text = "Cancel"
 	_remove_confirm.confirmed.connect(func():
 		var err: String = main.team.remove_agent(_removing)
-		main.ui.add_chat("Sistema", err if err != "" else "%s ha lasciato il mondo." % _removing)
+		main.ui.add_chat("System", err if err != "" else "%s left the world." % _removing)
 		_refresh_agents())
 	add_child(_remove_confirm)
 	var hint := Label.new()
-	hint.text = "Esc per tornare al gioco"
+	hint.text = "Esc to go back to the game"
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -224,7 +224,7 @@ func _build_agents_tab(tab: VBoxContainer) -> void:
 	_agent_list.add_theme_constant_override("separation", 6)
 	tab.add_child(_agent_list)
 	var add := Button.new()
-	add.text = "+ Nuovo agente o NPC"
+	add.text = "+ New agent or NPC"
 	add.focus_mode = Control.FOCUS_NONE
 	add.pressed.connect(func(): _open_form(""))
 	tab.add_child(add)
@@ -250,7 +250,7 @@ func _build_agents_tab(tab: VBoxContainer) -> void:
 	hh.add_theme_constant_override("separation", 10)
 	head.add_child(hh)
 	var back := Button.new()
-	back.text = "← Indietro"
+	back.text = "← Back"
 	back.focus_mode = Control.FOCUS_NONE
 	back.pressed.connect(_close_form)
 	hh.add_child(back)
@@ -265,69 +265,69 @@ func _build_agents_tab(tab: VBoxContainer) -> void:
 	_form_sub.add_theme_font_size_override("font_size", 12)
 	_form_sub.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
 	tv.add_child(_form_sub)
-	var r := _row(_form, "Nome")
+	var r := _row(_form, "Name")
 	_f_name = LineEdit.new()
-	_f_name.placeholder_text = "es. Oste, Guardia, Giardiniere"
+	_f_name.placeholder_text = "e.g. Innkeeper, Guard, Gardener"
 	_f_name.max_length = 20
 	_f_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	r.add_child(_f_name)
 	_full_only.append(r)
-	r = _row(_form, "Tipo")
+	r = _row(_form, "Type")
 	_full_only.append(r)
 	_f_kind = OptionButton.new()
 	_f_kind.fit_to_longest_item = false
 	_f_kind.clip_text = true
-	_f_kind.add_item("Costruttore (fa parte della squadra)")
-	_f_kind.add_item("NPC (vive nel mondo, non costruisce)")
+	_f_kind.add_item("Builder (part of the team)")
+	_f_kind.add_item("NPC (lives in the world, doesn't build)")
 	_f_kind.item_selected.connect(func(i):
 		_f_build.button_pressed = i == 0
 		_f_model_perm.button_pressed = i == 0)
 	_f_kind.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	r.add_child(_f_kind)
 	var l := Label.new()
-	l.text = "Ruolo e personalità"
+	l.text = "Role and personality"
 	l.add_theme_font_size_override("font_size", 14)
 	_form.add_child(l)
 	_full_only.append(l)
 	_f_role = TextEdit.new()
 	_f_role.custom_minimum_size = Vector2(0, 90)
 	_f_role.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
-	_f_role.placeholder_text = "Chi è, cosa fa, come parla. Es.: l'oste della taverna, burbero ma generoso, conosce tutti i pettegolezzi del villaggio."
+	_f_role.placeholder_text = "Who they are, what they do, how they talk. E.g.: the tavern's innkeeper, gruff but generous, knows all the village gossip."
 	_form.add_child(_f_role)
 	_full_only.append(_f_role)
-	r = _row(_form, "Colore")
+	r = _row(_form, "Color")
 	_full_only.append(r)
 	_f_color = ColorPickerButton.new()
 	_f_color.custom_minimum_size = Vector2(80, 28)
 	_f_color.edit_alpha = false
 	r.add_child(_f_color)
-	r = _row(_form, "Modello")
+	r = _row(_form, "Model")
 	_f_model = _model_picker(false)
 	r.add_child(_f_model)
-	r = _row(_form, "Quando gli scrivi tu")
+	r = _row(_form, "When you write to it")
 	_f_model_player = _model_picker(true)
 	r.add_child(_f_model_player)
-	_f_build = _perm_box(_form, "Può costruire e modificare il mondo")
-	_f_model_perm = _perm_box(_form, "Può creare modelli (laboratorio)")
-	_f_see = _perm_box(_form, "Può vedere (foto e ispezioni, costano di più)")
+	_f_build = _perm_box(_form, "Can build and change the world")
+	_f_model_perm = _perm_box(_form, "Can make models (workshop)")
+	_f_see = _perm_box(_form, "Can see (photos and inspections, cost more)")
 	_full_only.append_array([_f_build, _f_model_perm, _f_see])
 
 	# appearance (every agent, built-in ones too: it's only cosmetic)
 	var al := Label.new()
-	al.text = "Aspetto"
+	al.text = "Appearance"
 	al.add_theme_color_override("font_color", Color(0.45, 0.85, 1.0))
 	al.add_theme_font_size_override("font_size", 14)
 	_form.add_child(al)
-	r = _row(_form, "Carnagione")
+	r = _row(_form, "Skin")
 	_f_skin = OptionButton.new()
 	var skins: Array = main.team.BodyScript.SKINS
 	for i in skins.size():
-		_f_skin.add_icon_item(_swatch(Color(skins[i])), "tono %d" % (i + 1))
+		_f_skin.add_icon_item(_swatch(Color(skins[i])), "tone %d" % (i + 1))
 		_f_skin.set_item_metadata(i, skins[i])
 	r.add_child(_f_skin)
-	r = _row(_form, "Capelli")
+	r = _row(_form, "Hair")
 	_f_hair_style = OptionButton.new()
-	for h in ["corti", "lunghi", "cresta", "calvo"]:
+	for h in ["short", "long", "mohawk", "bald"]:
 		_f_hair_style.add_item(h)
 		_f_hair_style.set_item_metadata(_f_hair_style.item_count - 1, h)
 	r.add_child(_f_hair_style)
@@ -335,18 +335,18 @@ func _build_agents_tab(tab: VBoxContainer) -> void:
 	_f_hair.custom_minimum_size = Vector2(60, 28)
 	_f_hair.edit_alpha = false
 	r.add_child(_f_hair)
-	r = _row(_form, "Pantaloni")
+	r = _row(_form, "Trousers")
 	_f_pants = ColorPickerButton.new()
 	_f_pants.custom_minimum_size = Vector2(60, 28)
 	_f_pants.edit_alpha = false
 	r.add_child(_f_pants)
-	r = _row(_form, "Cappello")
+	r = _row(_form, "Hat")
 	_f_hat = OptionButton.new()
-	for h in [["nessuno", "nessuno"], ["berretto", "berretto"], ["cilindro", "cilindro"], ["cuoco", "da cuoco"], ["paglia", "di paglia"], ["corona", "corona"]]:
+	for h in [["none", "none"], ["cap", "cap"], ["top_hat", "top hat"], ["chef", "chef's hat"], ["straw", "straw hat"], ["crown", "crown"]]:
 		_f_hat.add_item(h[1])
 		_f_hat.set_item_metadata(_f_hat.item_count - 1, h[0])
 	r.add_child(_f_hat)
-	r = _row(_form, "Altezza")
+	r = _row(_form, "Height")
 	_f_height = HSlider.new()
 	_f_height.min_value = 0.8
 	_f_height.max_value = 1.2
@@ -361,8 +361,8 @@ func _build_agents_tab(tab: VBoxContainer) -> void:
 	var fb := HBoxContainer.new()
 	fb.add_theme_constant_override("separation", 8)
 	_form.add_child(fb)
-	_button(fb, "Salva", _save_form)
-	_button(fb, "Annulla", _close_form)
+	_button(fb, "Save", _save_form)
+	_button(fb, "Cancel", _close_form)
 
 
 func _close_form() -> void:
@@ -395,7 +395,7 @@ func _model_picker(with_same: bool) -> OptionButton:
 	o.fit_to_longest_item = false
 	o.clip_text = true
 	if with_same:
-		o.add_item("stesso modello")
+		o.add_item("same model")
 		o.set_item_metadata(0, "")
 	for id in main.team.MODEL_CHOICES:
 		o.add_item(main.team.MODEL_CHOICES[id])
@@ -470,11 +470,11 @@ func _agent_row(b) -> Control:
 	if b.is_lead:
 		extra.append("lead")
 	if b.is_reviewer:
-		extra.append("critico")
+		extra.append("critic")
 	if not b.can_build:
 		extra.append("NPC")
 	if b.hidden:
-		extra.append("nascosto")
+		extra.append("hidden")
 	name_l.text = b.agent_name + ("  (%s)" % ", ".join(extra) if not extra.is_empty() else "")
 	name_l.add_theme_color_override("font_color", b.color.lightened(0.2))
 	name_l.add_theme_font_size_override("font_size", 15)
@@ -486,18 +486,18 @@ func _agent_row(b) -> Control:
 		lock.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		lock.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		lock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		lock.tooltip_text = "Agente predefinito: puoi cambiarne il modello o nasconderlo, non modificarlo o rimuoverlo"
+		lock.tooltip_text = "Built-in agent: you can change its model or hide it, not edit or remove it"
 		lock.mouse_filter = Control.MOUSE_FILTER_STOP
 		title.add_child(lock)
 	var perms := PackedStringArray()
-	perms.append("costruisce" if b.can_build else "non costruisce")
+	perms.append("builds" if b.can_build else "doesn't build")
 	if b.can_model:
-		perms.append("crea modelli")
+		perms.append("makes models")
 	if b.can_see:
-		perms.append("vede")
+		perms.append("sees")
 	var models: String = main.team.model_label(b.model)
 	if b.model_for_player != "" and b.model_for_player != b.model:
-		models += " (%s quando gli scrivi tu%s)" % [main.team.model_label(b.model_for_player), ", solo per pianificare" if main.team.strong_plan_only else ""]
+		models += " (%s when you write to it%s)" % [main.team.model_label(b.model_for_player), ", only to plan" if main.team.strong_plan_only else ""]
 	var detail := Label.new()
 	detail.text = "%s  ·  %s" % [models, ", ".join(perms)]
 	detail.add_theme_font_size_override("font_size", 12)
@@ -507,14 +507,14 @@ func _agent_row(b) -> Control:
 	detail.tooltip_text = detail.text
 	detail.mouse_filter = Control.MOUSE_FILTER_PASS
 	info.add_child(detail)
-	_small_button(hb, "Mostra" if b.hidden else "Nascondi", func():
+	_small_button(hb, "Show" if b.hidden else "Hide", func():
 		main.team.set_hidden(b, not b.hidden)
 		_refresh_agents())
-	_small_button(hb, "Modifica", func(): _open_form(b.agent_name))
+	_small_button(hb, "Edit", func(): _open_form(b.agent_name))
 	if b.is_custom:
-		_small_button(hb, "Rimuovi", func():
+		_small_button(hb, "Remove", func():
 			_removing = b.agent_name
-			_remove_confirm.dialog_text = "Rimuovere %s dal mondo? Non si può annullare." % b.agent_name
+			_remove_confirm.dialog_text = "Remove %s from the world? This can't be undone." % b.agent_name
 			_remove_confirm.popup_centered())
 	else:
 		var spacer := Control.new()   # keeps the buttons aligned with the custom agents' rows
@@ -561,8 +561,8 @@ func _open_form(agent_name: String) -> void:
 	_f_error.text = ""
 	var b = main.team.find_brain(agent_name) if agent_name != "" else null
 	var full: bool = b == null or b.is_custom
-	_form_title.text = "Nuovo agente o NPC" if b == null else b.agent_name
-	_form_sub.text = "Scegli nome, ruolo, modello, permessi e aspetto" if b == null else ("Modifica · ruolo, modello, permessi e aspetto" if full else "Agente predefinito · puoi cambiare modello e aspetto")
+	_form_title.text = "New agent or NPC" if b == null else b.agent_name
+	_form_sub.text = "Choose name, role, model, permissions and appearance" if b == null else ("Edit · role, model, permissions and appearance" if full else "Built-in agent · you can change model and appearance")
 	var accent: Color = Color(0.45, 0.85, 1.0) if b == null else b.color
 	_form_title.add_theme_color_override("font_color", accent.lightened(0.2))
 	_form_head_style.border_color = accent
@@ -578,7 +578,7 @@ func _open_form(agent_name: String) -> void:
 	var body_script = main.team.BodyScript
 	var lk: Dictionary = b.body.full_look() if b != null else {
 		"skin": body_script.SKINS[n % body_script.SKINS.size()], "hair": body_script.HAIRS[(n * 3 + 1) % body_script.HAIRS.size()],
-		"hair_style": "corti", "pants": body_script.PANTS[(n * 5 + 2) % body_script.PANTS.size()], "hat": "nessuno", "height": 1.0}
+		"hair_style": "short", "pants": body_script.PANTS[(n * 5 + 2) % body_script.PANTS.size()], "hat": "none", "height": 1.0}
 	_pick(_f_skin, str(lk.skin))
 	_pick(_f_hair_style, str(lk.hair_style))
 	_pick(_f_hat, str(lk.hat))
@@ -595,7 +595,7 @@ func _open_form(agent_name: String) -> void:
 	_f_name.get_parent().visible = b == null   # an existing agent's name is in the header
 	_form.visible = true
 	_add_button.visible = false
-	# while editing an agent, stay on this tab (Salva or Indietro to leave)
+	# while editing an agent, stay on this tab (Save or Back to leave)
 	for i in _tabs.get_tab_count():
 		_tabs.set_tab_disabled(i, i != _tabs.current_tab)
 	var sc := _form.get_parent()
@@ -618,7 +618,7 @@ func _save_form() -> void:
 	if b != null and not b.is_custom:
 		team.set_models(b, model_id, for_player)
 		team.set_look(b, _form_look())
-		main.ui.add_chat("Sistema", "%s aggiornato: %s." % [b.agent_name, team.model_label(model_id)])
+		main.ui.add_chat("System", "%s updated: %s." % [b.agent_name, team.model_label(model_id)])
 	else:
 		var def := {
 			"role": _f_role.text.strip_edges(),
@@ -631,7 +631,7 @@ func _save_form() -> void:
 			"look": _form_look(),
 		}
 		if def.role == "":
-			_f_error.text = "Scrivi il ruolo e la personalità: è quello che l'agente sa di sé."
+			_f_error.text = "Write the role and personality: it's what the agent knows about itself."
 			return
 		if b == null:
 			def["name"] = _f_name.text.strip_edges()
@@ -640,18 +640,18 @@ func _save_form() -> void:
 				_f_error.text = err
 				return
 			var nb = team.brains[-1]
-			main.ui.add_chat("Sistema", "%s è entrato nel mondo%s." % [nb.agent_name, " (NPC)" if not nb.can_build else ""])
+			main.ui.add_chat("System", "%s entered the world%s." % [nb.agent_name, " (NPC)" if not nb.can_build else ""])
 			for other in team.brains:
 				if other != nb:
-					other.add_context("[Il giocatore ha aggiunto %s%s, con questo ruolo: %s]" % [nb.agent_name, " (un NPC: non costruisce)" if not nb.can_build else "", nb.role])
+					other.add_context("[The player added %s%s, with this role: %s]" % [nb.agent_name, " (an NPC: doesn't build)" if not nb.can_build else "", nb.role])
 			if team.api_key != "":
-				nb.queue_event("[Sei appena entrato nel mondo, creato dal giocatore. Presentati in una frase con say, nel tuo personaggio.]")
+				nb.queue_event("[You just entered the world, created by the player. Introduce yourself in one sentence with say, in character.]")
 		else:
 			var err: String = team.update_agent(b.agent_name, def)
 			if err != "":
 				_f_error.text = err
 				return
-			main.ui.add_chat("Sistema", "%s aggiornato." % b.agent_name)
+			main.ui.add_chat("System", "%s updated." % b.agent_name)
 	_close_form()
 	_refresh_agents()
 
@@ -667,7 +667,7 @@ func _refresh_costs() -> void:
 	var team = main.team
 	var tab := _costs_tab
 
-	_section(tab, "Tetto di spesa")
+	_section(tab, "Spending cap")
 	var head := Label.new()
 	head.add_theme_font_size_override("font_size", 16)
 	tab.add_child(head)
@@ -677,12 +677,12 @@ func _refresh_costs() -> void:
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tab.add_child(bar)
 	var show_budget := func():
-		head.text = "$%.3f spesi in questa sessione" % team.spent_usd + (" su un tetto di $%.2f" % team.budget_usd if team.budget_usd > 0.0 else " (nessun tetto)")
+		head.text = "$%.3f spent this session" % team.spent_usd + (" of a $%.2f cap" % team.budget_usd if team.budget_usd > 0.0 else " (no cap)")
 		bar.visible = team.budget_usd > 0.0
 		bar.max_value = maxf(team.budget_usd, 0.01)
 		bar.value = minf(team.spent_usd, team.budget_usd)
 	show_budget.call()
-	var brow := _row(tab, "Tetto di spesa ($, 0 = nessuno)")
+	var brow := _row(tab, "Spending cap ($, 0 = none)")
 	var spin := SpinBox.new()
 	spin.min_value = 0.0
 	spin.max_value = 100.0
@@ -692,11 +692,11 @@ func _refresh_costs() -> void:
 		team.set_budget(v)
 		show_budget.call())
 	brow.add_child(spin)
-	_note(tab, "Raggiunto il tetto, gli agenti si fermano e l'autonomia si spegne. Il tetto viene ricordato; la spesa riparte da zero a ogni avvio. In chat: /budget N e /costi.")
+	_note(tab, "When the cap is reached, the agents stop and autonomy turns off. The cap is remembered; spending starts from zero at every launch. In chat: /budget N and /costs.")
 
-	_section(tab, "Questa sessione")
+	_section(tab, "This session")
 	if team.usage.is_empty():
-		_note(tab, "Nessuna chiamata all'API in questa sessione.")
+		_note(tab, "No API calls in this session.")
 	else:
 		var rows: Array = []
 		var names: Array = team.usage.keys()
@@ -706,29 +706,29 @@ func _refresh_costs() -> void:
 			var ctx: int = r["input"] + r["cache_write"] + r["cache_read"]
 			rows.append([n, "$%.3f" % r["usd"], _pct(r["usd"], team.spent_usd), str(r["calls"]),
 				"$%.4f" % (r["usd"] / maxf(r["calls"], 1)), _k(int(ctx / maxf(r["calls"], 1))), _k(r["output"]), str(r["images"])])
-		_grid(tab, ["Agente", "Spesa", "Quota", "Chiamate", "$/chiamata", "Contesto medio", "Output", "Foto"], rows)
+		_grid(tab, ["Agent", "Spent", "Share", "Calls", "$/call", "Avg context", "Output", "Photos"], rows)
 		var mrows: Array = []
 		for m in team.usage_by_model:
 			var mr: Dictionary = team.usage_by_model[m]
 			mrows.append([team.model_label(m), "$%.3f" % mr["usd"], _pct(mr["usd"], team.spent_usd), str(mr["calls"])])
-		_grid(tab, ["Modello", "Spesa", "Quota", "Chiamate"], mrows)
-		_output_table(tab, "In cosa va l'output di questa sessione", team.output_by_kind, team.spent_usd)
+		_grid(tab, ["Model", "Spent", "Share", "Calls"], mrows)
+		_output_table(tab, "Where this session's output goes", team.output_by_kind, team.spent_usd)
 
-	_section(tab, "Come risparmiare")
-	var hb := _row(tab, "Modello forte solo per pianificare")
+	_section(tab, "How to save money")
+	var hb := _row(tab, "Strong model only to plan")
 	var chk := CheckButton.new()
 	chk.button_pressed = team.strong_plan_only
 	chk.toggled.connect(func(on):
 		team.set_strong_plan_only(on)
 		_refresh_agents())
 	hb.add_child(chk)
-	_note(tab, "Per gli agenti con un modello diverso \"quando gli scrivi tu\" (l'Architetto usa Sonnet): acceso, il modello forte legge la richiesta, fa il piano e delega, poi i passi successivi del turno (costruire, misurare, correggere) passano al modello base. Spento, il modello forte fa tutto il turno, fino a %d chiamate." % preload("res://scripts/agent_brain.gd").MAX_STEPS)
-	_note(tab, "Altre cose che fanno spendere, nelle altre schede: l'autonomia (Impostazioni > Squadra: con l'autonomia accesa ogni agente fa un turno da solo dopo 50-90 s di silenzio), il modello di ogni agente e il permesso di vedere (Agenti: foto e ispezioni costano di più).")
+	_note(tab, "For agents with a different model \"when you write to it\" (the Architect uses Sonnet): on, the strong model reads the request, makes the plan and delegates, then the following steps of the turn (building, measuring, fixing) go to the base model. Off, the strong model does the whole turn, up to %d calls." % preload("res://scripts/agent_brain.gd").MAX_STEPS)
+	_note(tab, "Other things that cost money, in the other tabs: autonomy (Settings > Team: with autonomy on, every agent takes a turn on its own after 50-90 s of silence), each agent's model and the permission to see (Agents: photos and inspections cost more).")
 
 	var entries: Array = team.read_usage_log()
-	_section(tab, "Storico (tutte le sessioni, logs/usage.csv)")
+	_section(tab, "History (all sessions, logs/usage.csv)")
 	if entries.is_empty():
-		_note(tab, "Ancora nessuna chiamata registrata.")
+		_note(tab, "No calls logged yet.")
 	else:
 		var total := 0.0
 		var by_day := {}
@@ -751,7 +751,7 @@ func _refresh_costs() -> void:
 		var today := Time.get_date_string_from_system()
 		var big := Label.new()
 		big.add_theme_font_size_override("font_size", 16)
-		big.text = "$%.2f in tutto · $%.3f oggi · %d chiamate · %d immagini" % [total, by_day.get(today, 0.0), entries.size(), images]
+		big.text = "$%.2f in total · $%.3f today · %d calls · %d images" % [total, by_day.get(today, 0.0), entries.size(), images]
 		tab.add_child(big)
 		var days: Array = by_day.keys()
 		days.sort()
@@ -759,17 +759,17 @@ func _refresh_costs() -> void:
 		var drows: Array = []
 		for d in days.slice(0, 7):
 			drows.append([d, "$%.3f" % by_day[d]])
-		_grid(tab, ["Giorno", "Spesa"], drows)
+		_grid(tab, ["Day", "Spent"], drows)
 		var arows: Array = []
 		var anames: Array = by_agent.keys()
 		anames.sort_custom(func(x, y): return by_agent[x]["usd"] > by_agent[y]["usd"])
 		for n in anames:
 			arows.append([n, "$%.3f" % by_agent[n]["usd"], _pct(by_agent[n]["usd"], total), str(by_agent[n]["calls"])])
-		_grid(tab, ["Agente", "Spesa", "Quota", "Chiamate"], arows)
+		_grid(tab, ["Agent", "Spent", "Share", "Calls"], arows)
 		var mrows2: Array = []
 		for m in by_model:
 			mrows2.append([team.model_label(m), "$%.3f" % by_model[m]["usd"], _pct(by_model[m]["usd"], total), str(by_model[m]["calls"])])
-		_grid(tab, ["Modello", "Spesa", "Quota", "Chiamate"], mrows2)
+		_grid(tab, ["Model", "Spent", "Share", "Calls"], mrows2)
 		var hist_kinds := {}
 		var split_calls := 0
 		var split_spend := 0.0
@@ -785,21 +785,21 @@ func _refresh_costs() -> void:
 				rec["usd"] += e["out_kinds"][k] * price
 				hist_kinds[k] = rec
 		if split_calls == 0:
-			_note(tab, "La divisione dell'output per tipo (messaggi, pensieri, codice...) si registra dalle prossime chiamate.")
+			_note(tab, "The split of the output by kind (messages, thoughts, code...) is logged from the next calls on.")
 		else:
-			_output_table(tab, "In cosa va l'output (storico, %d chiamate registrate con il dettaglio)" % split_calls, hist_kinds, split_spend)
-		_note(tab, "Sono stime fatte dal gioco con i prezzi qui sotto: il conto vero è nella Console Anthropic. Se lì vedi molto di più, la differenza viene da altro che usa la stessa API key.")
+			_output_table(tab, "Where the output goes (history, %d calls logged with the details)" % split_calls, hist_kinds, split_spend)
+		_note(tab, "These are the game's estimates with the prices below: the real bill is in the Anthropic Console. If you see much more there, the difference comes from something else using the same API key.")
 
-	_section(tab, "Prezzi usati per le stime ($ per milione di token)")
+	_section(tab, "Prices used for the estimates ($ per million tokens)")
 	var prows: Array = []
 	for m in team.PRICES:
 		var pr: Array = team.PRICES[m]
 		prows.append([team.model_label(m), "%.2f" % pr[0], "%.2f" % pr[1], "%.3f" % pr[2], "%.3f" % pr[3]])
-	_grid(tab, ["Modello", "Input", "Output", "Scrittura cache", "Lettura cache"], prows)
-	_note(tab, "Ogni chiamata rilegge prompt, strumenti e conversazione (circa 20.000 token), quasi sempre dalla cache, che costa un decimo. La cache dura 5 minuti: dopo una pausa più lunga la prima chiamata la riscrive. Haiku costa 5 volte tanto sopra i 100.000 token di contesto. Prezzi da verificare sulla pagina ufficiale (scripts/team.gd).")
+	_grid(tab, ["Model", "Input", "Output", "Cache write", "Cache read"], prows)
+	_note(tab, "Every call re-reads the prompt, tools and conversation (about 20,000 tokens), almost always from the cache, which costs a tenth. The cache lasts 5 minutes: after a longer pause the first call writes it again. Haiku costs 5 times as much above 100,000 tokens of context. Check the prices on the official page (scripts/team.gd).")
 
 	var refresh := Button.new()
-	refresh.text = "Aggiorna"
+	refresh.text = "Refresh"
 	refresh.focus_mode = Control.FOCUS_NONE
 	refresh.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	refresh.pressed.connect(_refresh_costs)
@@ -813,7 +813,7 @@ func _output_table(parent: Control, title: String, kinds: Dictionary, spend: flo
 	l.add_theme_font_size_override("font_size", 14)
 	parent.add_child(l)
 	if kinds.is_empty():
-		_note(parent, "Ancora nessun output registrato.")
+		_note(parent, "No output logged yet.")
 		return
 	var tokens := 0
 	var usd := 0.0
@@ -826,8 +826,8 @@ func _output_table(parent: Control, title: String, kinds: Dictionary, spend: flo
 	for k in keys:
 		rows.append([str(main.team.OUTPUT_KINDS.get(k, k)), _k(kinds[k]["tokens"]), _pct(kinds[k]["tokens"], tokens),
 			"$%.3f" % kinds[k]["usd"], _pct(kinds[k]["usd"], spend)])
-	_grid(parent, ["Tipo", "Token", "% dell'output", "Spesa", "% della spesa totale"], rows)
-	_note(parent, "L'output vale il %s della spesa ($%.3f su $%.3f). Stima: l'API dà solo il totale dei token generati, che qui è diviso in proporzione alla lunghezza di ogni parte della risposta. Il resto della spesa è input: prompt, strumenti, conversazione e foto riletti a ogni chiamata." % [_pct(usd, spend), usd, spend])
+	_grid(parent, ["Kind", "Tokens", "% of output", "Spent", "% of total spending"], rows)
+	_note(parent, "The output is %s of the spending ($%.3f of $%.3f). Estimate: the API only gives the total of generated tokens, split here in proportion to the length of each part of the answer. The rest of the spending is input: prompt, tools, conversation and photos re-read at every call." % [_pct(usd, spend), usd, spend])
 
 
 func _grid(parent: Control, header: Array, rows: Array) -> void:
@@ -866,10 +866,10 @@ func _refresh_style() -> void:
 		return
 	for c in _style_tab.get_children():
 		c.queue_free()
-	_note(_style_tab, "Palette comune a tutti i mondi · passa sopra un colore per vedere a cosa serve")
+	_note(_style_tab, "Palette shared by all worlds · hover a color to see what it's for")
 	var groups := {}
 	for n in Shapes.PALETTE:
-		var g := str(Shapes.PALETTE[n].get("group", "altro"))
+		var g := str(Shapes.PALETTE[n].get("group", "other"))
 		if not groups.has(g):
 			groups[g] = []
 		groups[g].append(n)
@@ -885,7 +885,7 @@ func _refresh_style() -> void:
 			var item := HBoxContainer.new()
 			item.add_theme_constant_override("separation", 6)
 			item.custom_minimum_size.x = 175
-			item.tooltip_text = "%s · %s%s" % [e.color, str(e.get("description", "")), " · luminoso" if e.has("glow") else ""]
+			item.tooltip_text = "%s · %s%s" % [e.color, str(e.get("description", "")), " · glowing" if e.has("glow") else ""]
 			item.mouse_filter = Control.MOUSE_FILTER_STOP
 			var sw := PanelContainer.new()
 			var sb := StyleBoxFlat.new()
@@ -912,30 +912,30 @@ func _refresh_style() -> void:
 # ---------------------------------------------------------------- commands tab
 
 const KEYS := [
-	["Movimento", [
-		["W A S D", "muoversi"], ["Spazio", "saltare (tieni premuto per saltare più in alto)"], ["Shift", "correre"],
-		["F", "volo on/off · Spazio e C per salire e scendere"],
+	["Movement", [
+		["W A S D", "move"], ["Space", "jump (hold for a higher jump)"], ["Shift", "run"],
+		["F", "fly on/off · Space and C to go up and down"],
 	]],
-	["Gioco", [
-		["Invio", "scrivere in chat (@Nome per un agente, @tutti a tutti)"], ["Tab", "console GDScript (Ctrl/Cmd+Invio esegue)"],
-		["X", "elimina l'oggetto nel mirino"], ["P", "autonomia degli agenti on/off"], ["Ctrl/Cmd+Z", "annulla l'ultima modifica"],
-		["Esc", "menu · chiude i pannelli aperti"],
+	["Game", [
+		["Enter", "write in chat (@Name for an agent, @all for everyone)"], ["Tab", "GDScript console (Ctrl/Cmd+Enter runs it)"],
+		["X", "delete the object you aim at"], ["P", "agent autonomy on/off"], ["Ctrl/Cmd+Z", "undo the last change"],
+		["Esc", "menu · closes open panels"],
 	]],
-	["Modalità costruzione (B)", [
-		["Clic", "seleziona l'oggetto nel mirino"], ["G", "afferra: segue il mirino, clic per posarlo, Esc annulla"],
-		["R · Shift+R", "ruota di 15°"], ["Rotellina", "ruota (con Shift scala)"], ["+ · -", "scala"],
-		["C", "duplica e afferra la copia"], ["X", "elimina"],
+	["Build mode (B)", [
+		["Click", "select the object you aim at"], ["G", "grab: follows your aim, click to drop it, Esc cancels"],
+		["R · Shift+R", "rotate by 15°"], ["Wheel", "rotate (with Shift: scale)"], ["+ · -", "scale"],
+		["C", "duplicate and grab the copy"], ["X", "delete"],
 	]],
-	["Comandi in chat", [
-		["@Nome messaggio", "parla a un agente (senza @ risponde il lead)"],
-		["/agenti", "elenca la squadra"], ["/nuovo Nome: ruolo", "crea un agente (o dal menu Agenti)"], ["/rimuovi Nome", "rimuove un agente creato da te"],
-		["/salva nome · /carica nome", "salvataggi con nome"], ["/salvataggi", "elenca i salvataggi"],
-		["/annulla · /storia · /ripristina N", "cronologia del mondo"],
-		["/blueprint nome descrizione", "salva l'oggetto mirato come modello riusabile"], ["/piazza nome · /blueprints", "piazza o elenca i blueprint"],
-		["/ora H · /ciclo min", "ora del giorno e durata del ciclo (0 = fermo)"], ["/terreno tipo", "griglia, prato, sabbia, neve, pietra, terra"], ["/nebbia 0-1", "densità della nebbia"],
-		["/costi · /budget $", "spesa stimata e tetto"], ["/segui", "gli agenti ti raggiungono on/off"], ["/ui 1.2", "dimensione dell'interfaccia"],
-		["/auto", "autonomia on/off"], ["/clear", "gli agenti dimenticano la conversazione"], ["/reset", "svuota il mondo"],
-		["/azzera", "reset totale (mondo, memoria, lavagna, cronologia)"], ["/aiuto", "questo elenco in chat"],
+	["Chat commands", [
+		["@Name message", "talk to an agent (without @ the lead answers)"],
+		["/agents", "list the team"], ["/new Name: role", "create an agent (or from the Agents menu)"], ["/remove Name", "remove an agent you created"],
+		["/save name · /load name", "named saves"], ["/saves", "list the saves"],
+		["/undo · /history · /restore N", "world history"],
+		["/blueprint name description", "save the object you aim at as a reusable blueprint"], ["/place name · /blueprints", "place or list blueprints"],
+		["/time H · /cycle min", "time of day and cycle length (0 = stopped)"], ["/ground type", "grid, grass, sand, snow, stone, dirt"], ["/fog 0-1", "fog density"],
+		["/costs · /budget $", "estimated spending and cap"], ["/follow", "agents catch up with you on/off"], ["/ui 1.2", "interface size"],
+		["/auto", "autonomy on/off"], ["/clear", "agents forget the conversation"], ["/reset", "empty the world"],
+		["/wipe", "full reset (world, memory, board, history)"], ["/help", "this list in chat"],
 	]],
 ]
 

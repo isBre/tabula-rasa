@@ -14,11 +14,11 @@ func _ready() -> void:
 	team.autonomy = false
 	team.load_api_key()
 	World.chat_message.connect(func(a, t): _out.append("%s: %s" % [a, t]))
-	team.find_brain("Architetto").queue_event("[Il giocatore ti dice]: costruisci da solo (senza delegare) una casetta di legno con tetto a due falde, una porta, due finestre, un piccolo giardino recintato con un albero e un sentiero che arriva alla porta, davanti a me. Poi verifica che sia fatta bene.")
+	team.find_brain("Architect").queue_event("[The player tells you]: build on your own (without delegating) a small wooden house with a gable roof, a door, two windows, a small fenced garden with a tree and a path leading to the door, in front of me. Then check that it is well made.")
 	for i in 16:
 		await get_tree().create_timer(10.0).timeout
 		_flush()
-		if not team.find_brain("Architetto").busy and i > 1:
+		if not team.find_brain("Architect").busy and i > 1:
 			break
 	var img: Image = await team.photographer.capture(World.player.global_position + Vector3(4, 6, 6), World.player.global_position + Vector3(0, 0, -10), World.agents.values())
 	img.save_jpg(ProjectSettings.globalize_path("res://tests/reviewtest_photo.jpg"))

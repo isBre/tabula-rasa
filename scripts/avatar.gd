@@ -10,9 +10,9 @@ var shirt := "#2f8fce"
 var pants := "#3a3f4b"
 var shoes := "#2a2a2e"
 var hair := "#4a3426"
-var hair_style := "corti"   # corti | lunghi | cresta | calvo
-var hat := "nessuno"        # nessuno | berretto | cilindro | cuoco | paglia | corona
-var label_text := "Giocatore"
+var hair_style := "short"   # short | long | mohawk | bald
+var hat := "none"        # none | cap | top_hat | chef | straw | crown
+var label_text := "Player"
 var label_color := Color.WHITE
 var hidden_from_owner := true   # player's body: not drawn by the player's camera
 var label_height := 2.1
@@ -25,7 +25,7 @@ var neck: Node3D
 var torso: Node3D
 var mouth: Node3D
 var label: Label3D
-var activity := "fermo"
+var activity := "idle"
 
 var _phase := 0.0
 var _talk_t := 0.0
@@ -70,11 +70,11 @@ func _ready() -> void:
 ## Hair and hat on the head (the face looks toward -Z, the top of the head is at y 0.29).
 func _hair_and_hat() -> void:
 	match hair_style:
-		"calvo":
+		"bald":
 			pass
-		"cresta":
+		"mohawk":
 			_part(neck, Shapes.box(Vector3(0.07, 0.12, 0.25), hair, false), Vector3(0, 0.27, 0.01))
-		"lunghi":
+		"long":
 			_part(neck, Shapes.box(Vector3(0.26, 0.08, 0.27), hair, false), Vector3(0, 0.27, 0.01))
 			_part(neck, Shapes.box(Vector3(0.27, 0.3, 0.06), hair, false), Vector3(0, 0.02, 0.11))
 			for side in [-1, 1]:
@@ -82,25 +82,25 @@ func _hair_and_hat() -> void:
 		_:
 			_part(neck, Shapes.box(Vector3(0.26, 0.08, 0.27), hair, false), Vector3(0, 0.27, 0.01))
 	match hat:
-		"berretto":
+		"cap":
 			_part(neck, Shapes.box(Vector3(0.28, 0.08, 0.29), shirt, false), Vector3(0, 0.29, 0.01))
 			_part(neck, Shapes.box(Vector3(0.22, 0.02, 0.13), shirt, false), Vector3(0, 0.29, -0.18))
-		"cilindro":
+		"top_hat":
 			_part(neck, Shapes.box(Vector3(0.38, 0.02, 0.38), "#1f1f24", false), Vector3(0, 0.3, 0.01))
 			_part(neck, Shapes.box(Vector3(0.22, 0.26, 0.22), "#1f1f24", false), Vector3(0, 0.32, 0.01))
 			_part(neck, Shapes.box(Vector3(0.225, 0.04, 0.225), shirt, false), Vector3(0, 0.33, 0.01))
-		"cuoco":
+		"chef":
 			_part(neck, Shapes.box(Vector3(0.27, 0.07, 0.28), "#f4f4f2", false), Vector3(0, 0.28, 0.01))
 			_part(neck, Shapes.box(Vector3(0.32, 0.18, 0.32), "#ffffff", false), Vector3(0, 0.35, 0.01))
-		"paglia":
+		"straw":
 			_part(neck, Shapes.box(Vector3(0.52, 0.02, 0.52), "#d8b45a", false), Vector3(0, 0.3, 0.01))
 			_part(neck, Shapes.box(Vector3(0.25, 0.1, 0.25), "#d8b45a", false), Vector3(0, 0.31, 0.01))
 			_part(neck, Shapes.box(Vector3(0.255, 0.03, 0.255), "#a8432f", false), Vector3(0, 0.32, 0.01))
-		"corona":
-			_part(neck, Shapes.box(Vector3(0.27, 0.05, 0.28), "oro", false), Vector3(0, 0.3, 0.01))
+		"crown":
+			_part(neck, Shapes.box(Vector3(0.27, 0.05, 0.28), "gold", false), Vector3(0, 0.3, 0.01))
 			for x in [-0.11, 0.0, 0.11]:
 				for z in [-0.12, 0.12]:
-					_part(neck, Shapes.box(Vector3(0.05, 0.07, 0.04), "oro", false), Vector3(x, 0.34, z + 0.01))
+					_part(neck, Shapes.box(Vector3(0.05, 0.07, 0.04), "gold", false), Vector3(x, 0.34, z + 0.01))
 
 
 ## A limb hanging down from a pivot: segments stacked downward.
@@ -144,27 +144,27 @@ func animate(delta: float, state: Dictionary) -> void:
 	var arm_side := 0.06
 	var lean := 0.0
 	if flying:
-		activity = "vola"
+		activity = "flying"
 		arm_side = 1.35
 		legs = 0.15
 		lean = -0.25 if speed > 1.0 else 0.0
 	elif not on_floor:
-		activity = "salta" if state.get("vy", 0.0) > 0.0 else "cade"
+		activity = "jumping" if state.get("vy", 0.0) > 0.0 else "falling"
 		legs = 0.5
 		arms = -0.6
 		arm_side = 0.4
 	elif speed > 0.4:
-		activity = "corre" if speed > walk_speed + 0.5 else "cammina"
+		activity = "running" if speed > walk_speed + 0.5 else "walking"
 		_phase += delta * speed * 2.3
 		var swing := clampf(speed / walk_speed, 0.0, 1.5) * 0.55
 		legs = sin(_phase) * swing
 		arms = -sin(_phase) * swing * 0.8
 		lean = 0.08 * clampf(speed / walk_speed, 0.0, 1.6)
 	else:
-		activity = "fermo"
+		activity = "idle"
 		_phase = 0.0
 	if building:
-		activity = "costruisce"
+		activity = "building"
 	hip_l.rotation.x = lerpf(hip_l.rotation.x, legs, t)
 	hip_r.rotation.x = lerpf(hip_r.rotation.x, -legs if on_floor else legs * 0.6, t)
 	shoulder_l.rotation.x = lerpf(shoulder_l.rotation.x, arms, t)

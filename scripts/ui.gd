@@ -4,10 +4,10 @@ extends CanvasLayer
 signal player_message(text: String)
 signal run_code_requested(code: String)
 
-const HELP := "WASD muovi · Spazio salta · Shift corri · F volo (Spazio/C su e giù)\nInvio chat (@Nome per un agente) · Tab console codice · B costruzione · X elimina · Ctrl+Z annulla · Esc menu\n/aiuto per i comandi"
+const HELP := "WASD move · Space jump · Shift run · F fly (Space/C up and down)\nEnter chat (@Name for an agent) · Tab code console · B build · X delete · Ctrl+Z undo · Esc menu\n/help for the commands"
 
 const CODE_TEMPLATE := """extends Node3D
-# Questo script diventa un oggetto 4 m davanti a te.
+# This script becomes an object 4 m in front of you.
 
 var t := 0.0
 
@@ -28,10 +28,10 @@ func _process(delta):
 """
 
 var author_colors := {
-	"Tu": "#ffffff",
-	"Sistema": "#ffcf6c",
-	"Azione": "#7d8799",
-	"Pensiero": "#6d7585",
+	"You": "#ffffff",
+	"System": "#ffcf6c",
+	"Action": "#7d8799",
+	"Thought": "#6d7585",
 }
 
 var chat_log: RichTextLabel
@@ -61,7 +61,10 @@ func _ready() -> void:
 	if cfg.load(SETTINGS_PATH) == OK:
 		ui_scale = float(cfg.get_value("ui", "scale", 1.0))
 		if cfg.has_section_key("chat", "filter") and cfg.get_value("chat", "filter") is Dictionary:
-			chat_filter.merge(cfg.get_value("chat", "filter"), true)
+			var saved: Dictionary = cfg.get_value("chat", "filter")
+			for k in saved:
+				if chat_filter.has(k):
+					chat_filter[k] = saved[k]
 	apply_scale()
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -102,7 +105,7 @@ func _ready() -> void:
 	chips.add_theme_constant_override("separation", 4)
 	vb.add_child(chips)
 	var show_l := Label.new()
-	show_l.text = "Mostra"
+	show_l.text = "Show"
 	show_l.add_theme_font_size_override("font_size", 11)
 	show_l.add_theme_color_override("font_color", HUD_MUTED)
 	chips.add_child(show_l)
@@ -133,7 +136,7 @@ func _ready() -> void:
 	chat_log.add_theme_font_size_override("italics_font_size", 12)
 	vb.add_child(chat_log)
 	chat_input = LineEdit.new()
-	chat_input.placeholder_text = "Invio per scrivere (@Nome per un agente) · Esc menu e comandi"
+	chat_input.placeholder_text = "Enter to write (@Name for an agent) · Esc menu and commands"
 	chat_input.add_theme_font_size_override("font_size", 13)
 	chat_input.text_submitted.connect(_on_chat_submitted)
 	vb.add_child(chat_input)
@@ -153,7 +156,7 @@ func _ready() -> void:
 	var cvb := VBoxContainer.new()
 	code_panel.add_child(cvb)
 	var title := Label.new()
-	title.text = "Console GDScript · Ctrl/Cmd+Invio per eseguire · Esc per chiudere"
+	title.text = "GDScript console · Ctrl/Cmd+Enter to run · Esc to close"
 	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	cvb.add_child(title)
 	code_edit = CodeEdit.new()
@@ -168,12 +171,12 @@ func _ready() -> void:
 	var hb := HBoxContainer.new()
 	cvb.add_child(hb)
 	var run_btn := Button.new()
-	run_btn.text = "Esegui"
+	run_btn.text = "Run"
 	run_btn.focus_mode = Control.FOCUS_NONE
 	run_btn.pressed.connect(func(): run_code_requested.emit(code_edit.text))
 	hb.add_child(run_btn)
 	var close_btn := Button.new()
-	close_btn.text = "Chiudi"
+	close_btn.text = "Close"
 	close_btn.focus_mode = Control.FOCUS_NONE
 	close_btn.pressed.connect(_close_all)
 	hb.add_child(close_btn)
@@ -234,9 +237,9 @@ func _highlighter() -> CodeHighlighter:
 
 
 ## Kinds of chat lines that can be hidden (the conversation with the player always shows).
-const CHAT_KINDS := {"squadra": "Squadra", "azioni": "Azioni", "pensieri": "Pensieri", "sistema": "Sistema"}
+const CHAT_KINDS := {"team": "Team", "actions": "Actions", "thoughts": "Thoughts", "system": "System"}
 const CHAT_KEEP := 400
-var chat_filter := {"squadra": true, "azioni": false, "pensieri": false, "sistema": true}
+var chat_filter := {"team": true, "actions": false, "thoughts": false, "system": true}
 var _chat_entries: Array = []   # [author, text], also the hidden ones
 var _chips := {}
 
@@ -253,14 +256,14 @@ func _chip_style(on: bool) -> StyleBoxFlat:
 
 
 static func chat_kind(author: String) -> String:
-	if author == "Azione":
-		return "azioni"
-	if author == "Pensiero":
-		return "pensieri"
-	if author == "Sistema":
-		return "sistema"
+	if author == "Action":
+		return "actions"
+	if author == "Thought":
+		return "thoughts"
+	if author == "System":
+		return "system"
 	if "→" in author:
-		return "squadra"
+		return "team"
 	return ""   # you, and agents talking to you
 
 
@@ -280,7 +283,7 @@ func _shown(author: String) -> bool:
 func _chat_line(author: String, text: String) -> void:
 	var color: String = author_colors.get(author.get_slice(" ", 0), "#dddddd")
 	var safe := text.replace("[", "[lb]")
-	if author in ["Azione", "Pensiero"]:
+	if author in ["Action", "Thought"]:
 		chat_log.append_text("[color=%s][i]%s[/i][/color]\n" % [color, safe])
 	else:
 		chat_log.append_text("[color=%s][b]%s:[/b][/color] %s\n" % [color, author, safe])
@@ -305,7 +308,7 @@ func set_chat_filter(kind: String, on: bool) -> void:
 
 func show_photo(author: String, img: Image) -> void:
 	photo_rect.texture = ImageTexture.create_from_image(img)
-	photo_label.text = "Foto scattata da " + author
+	photo_label.text = "Photo taken by " + author
 	photo_label.add_theme_color_override("font_color", Color.from_string(author_colors.get(author, "#ffffff"), Color.WHITE))
 	photo_panel.visible = true
 	_photo_t = 9.0
@@ -428,7 +431,7 @@ func _hud_rows(grid: GridContainer, rows: Array) -> void:
 		nm.text = a[0]
 		nm.add_theme_color_override("font_color", Color(a[1]).lightened(0.25))
 		var busy: bool = a[2] != ""
-		st.text = a[2] if busy else "in ascolto"
+		st.text = a[2] if busy else "listening"
 		st.add_theme_color_override("font_color", HUD_BUSY if busy else Color(HUD_MUTED, 0.6))
 
 
@@ -449,7 +452,7 @@ func set_hud(d: Dictionary) -> void:
 	var npcs: Array = d.npcs
 	l.panel.visible = not npcs.is_empty()
 	l.title.text = "NPC"
-	l.value.text = "%d nel mondo" % npcs.size()
+	l.value.text = "%d in the world" % npcs.size()
 	_hud_rows(l.grid, npcs)
 	l.footer.text = d.npc_footer
 

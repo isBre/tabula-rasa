@@ -23,7 +23,7 @@ const PANTS := ["#3a3f4b", "#4b3b2b", "#2f4a3a", "#2d2d38", "#5a4a6a", "#394a5c"
 ## in front and to the sides, so the player can see the agents.
 const SLOTS := [[-35.0, 1.0], [35.0, 1.0], [-70.0, 0.9], [70.0, 0.9], [-105.0, 0.9], [105.0, 0.9], [-140.0, 1.0], [140.0, 1.0]]
 
-var agent_name := "Agente"
+var agent_name := "Agent"
 var color := Color(0.3, 0.9, 1.0)
 var team            # team.gd, for the follow setting
 var follow_slot := 0
@@ -66,8 +66,8 @@ func _ready() -> void:
 func full_look() -> Dictionary:
 	var i := follow_slot
 	var d := {
-		"skin": SKINS[i % SKINS.size()], "hair": HAIRS[(i * 3 + 1) % HAIRS.size()], "hair_style": "corti",
-		"pants": PANTS[(i * 5 + 2) % PANTS.size()], "hat": "nessuno", "height": 0.94 + 0.03 * (i % 4),
+		"skin": SKINS[i % SKINS.size()], "hair": HAIRS[(i * 3 + 1) % HAIRS.size()], "hair_style": "short",
+		"pants": PANTS[(i * 5 + 2) % PANTS.size()], "hat": "none", "height": 0.94 + 0.03 * (i % 4),
 	}
 	d.merge(look, true)
 	return d
@@ -88,7 +88,7 @@ func _build_avatar() -> void:
 	avatar.label_color = color.lightened(0.25)
 	avatar.hidden_from_owner = false
 	var h := clampf(float(l.height), 0.7, 1.3)
-	var hat_extra: float = {"cuoco": 0.28, "cilindro": 0.3, "corona": 0.12, "berretto": 0.06, "paglia": 0.1}.get(str(l.hat), 0.0)
+	var hat_extra: float = {"chef": 0.28, "top_hat": 0.3, "crown": 0.12, "cap": 0.06, "straw": 0.1}.get(str(l.hat), 0.0)
 	avatar.label_height = 2.12 + hat_extra / h
 	avatar.scale = Vector3.ONE * h
 	add_child(avatar)
@@ -141,7 +141,7 @@ func set_status(text: String) -> void:
 
 
 func status_desc() -> String:
-	return _status_text if _status_text != "" else "in ascolto"
+	return _status_text if _status_text != "" else "listening"
 
 
 ## Go to a point (feet position, or a spot in the air: then it flies).

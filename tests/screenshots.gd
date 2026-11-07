@@ -6,15 +6,15 @@ const ShapesTest := preload("res://tests/shapestest.gd")
 
 const LAMP_ROW := """extends Node3D
 func _ready():
-	add_child(Shapes.ribbon([Vector3(0, 0, 0), Vector3(0.5, 0, -8), Vector3(-0.5, 0, -16), Vector3(0, 0, -24)], 2.2, 0.06, "terra"))
+	add_child(Shapes.ribbon([Vector3(0, 0, 0), Vector3(0.5, 0, -8), Vector3(-0.5, 0, -16), Vector3(0, 0, -24)], 2.2, 0.06, "dirt"))
 	for i in 4:
 		var post := Node3D.new()
 		post.position = Vector3(1.8, 0, -i * 6.5 - 1)
-		post.add_child(Shapes.cylinder(0.07, 3.2, 6, "ferro_scuro", true))
-		var lamp := Shapes.box(Vector3(0.36, 0.42, 0.36), "luce_calda", false)
+		post.add_child(Shapes.cylinder(0.07, 3.2, 6, "dark_iron", true))
+		var lamp := Shapes.box(Vector3(0.36, 0.42, 0.36), "warm_light", false)
 		lamp.position.y = 3.2
 		post.add_child(lamp)
-		var cap := Shapes.roof("pyramid", 0.4, 0.4, 0.25, 0.04, "ferro_scuro", false)
+		var cap := Shapes.roof("pyramid", 0.4, 0.4, 0.25, 0.04, "dark_iron", false)
 		cap.position.y = 3.62
 		post.add_child(cap)
 		var light := OmniLight3D.new()
@@ -39,36 +39,36 @@ func _ready() -> void:
 	team.set_follow(false)
 	player.set_process_unhandled_input(false)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	env.set_values({"time_of_day": 10.5, "cycle_minutes": 0, "ground": "prato", "fog": 0.15})
-	World.run_script({"code": ShapesTest.SHOWCASE, "position": [0, 0, 0], "name": "villaggio"}, "Architetto")
-	var cottage_id: String = World.run_script({"code": ShapesTest.COTTAGE, "position": [-6, 0, -1], "name": "casetta"}, "Architetto").text.get_slice(" ", 1)
-	World.run_script({"code": LAMP_ROW, "position": [30, 0, 10], "name": "viale dei lampioni"}, "Decoratore")
-	var positions := {"Architetto": Vector3(-2, 4.5, 2), "Paesaggista": Vector3(-12, 5, -6), "Decoratore": Vector3(6, 2.8, 5), "Ingegnere": Vector3(11, 3.6, 3), "Critico": Vector3(-4, 6, -3)}
+	env.set_values({"time_of_day": 10.5, "cycle_minutes": 0, "ground": "grass", "fog": 0.15})
+	World.run_script({"code": ShapesTest.SHOWCASE, "position": [0, 0, 0], "name": "village"}, "Architect")
+	var cottage_id: String = World.run_script({"code": ShapesTest.COTTAGE, "position": [-6, 0, -1], "name": "cottage"}, "Architect").text.get_slice(" ", 1)
+	World.run_script({"code": LAMP_ROW, "position": [30, 0, 10], "name": "streetlight avenue"}, "Decorator")
+	var positions := {"Architect": Vector3(-2, 4.5, 2), "Landscaper": Vector3(-12, 5, -6), "Decorator": Vector3(6, 2.8, 5), "Engineer": Vector3(11, 3.6, 3), "Critic": Vector3(-4, 6, -3)}
 	for b in team.brains:
 		b.body.position = positions.get(b.agent_name, Vector3(0, 3, 0))
-	team.find_brain("Architetto")._set_status("sta pensando...")
-	team.find_brain("Decoratore")._set_status("scrive codice...")
+	team.find_brain("Architect")._set_status("thinking...")
+	team.find_brain("Decorator")._set_status("writing code...")
 	ui.chat_log.clear()
-	ui.add_chat("Tu", "@Architetto facciamo un piccolo villaggio con una casetta, un bosco e una fontana")
-	ui.add_chat("Architetto", "Ci sto! Piazza e casetta le faccio io, il bosco al Paesaggista e la fontana al Decoratore.")
-	ui.add_chat("Azione", "Architetto · run_script → Creato %s (script Node3D) in (-6.0, 0.0, -1.0)." % cottage_id)
-	ui.add_chat("Architetto → Paesaggista", "Bosco misto a ovest della casetta, tra x -25 e -7, z -17 e -3.")
-	ui.add_chat("Critico → Decoratore", "obj_9: il vaso fluttua di 5 cm, abbassalo a y=0.")
+	ui.add_chat("You", "@Architect let's make a small village with a cottage, a wood and a fountain")
+	ui.add_chat("Architect", "I'm in! I'll do the square and the cottage, the wood goes to the Landscaper and the fountain to the Decorator.")
+	ui.add_chat("Action", "Architect · run_script → Created %s (script Node3D) at (-6.0, 0.0, -1.0)." % cottage_id)
+	ui.add_chat("Architect → Landscaper", "Mixed wood west of the cottage, between x -25 and -7, z -17 and -3.")
+	ui.add_chat("Critic → Decorator", "obj_9: the vase floats 5 cm up, lower it to y=0.")
 	await get_tree().create_timer(1.0).timeout
 
 	# 1. the game window, daytime village
-	await _window_shot("01_villaggio", Vector3(-3, 1.6, 12), Vector3(-2, 2.0, -6))
+	await _window_shot("01_village", Vector3(-3, 1.6, 12), Vector3(-2, 2.0, -6))
 	# 2. sunset with the lamp-lit avenue
 	env.set_values({"time_of_day": 19.2})
-	await _window_shot("02_tramonto", Vector3(31.5, 1.7, 13), Vector3(30, 1.4, 0))
+	await _window_shot("02_sunset", Vector3(31.5, 1.7, 13), Vector3(30, 1.4, 0))
 	# 3. night
 	env.set_values({"time_of_day": 22.5})
-	await _window_shot("03_notte", Vector3(26, 3, 14), Vector3(31, 1.0, -4))
+	await _window_shot("03_night", Vector3(26, 3, 14), Vector3(31, 1.0, -4))
 	env.set_values({"time_of_day": 10.5})
 	# 4. what an agent sees: 4-view inspection of the cottage
 	var cottage = World._get_entity(cottage_id)
 	var sheet: Image = await team.photographer.contact_sheet(World.world_aabb(cottage), World.agents.values())
-	_save(sheet, "04_ispezione_agente")
+	_save(sheet, "04_agent_inspection")
 	# 5. the player's avatar in build mode, seen from an agent's photo
 	player.global_position = Vector3(3, 0.1, 5)
 	player.rotation.y = deg_to_rad(40)
@@ -76,7 +76,7 @@ func _ready() -> void:
 	build.selected_id = cottage_id
 	await get_tree().create_timer(0.6).timeout
 	var pic: Image = await team.photographer.capture(Vector3(8, 3.2, 9), Vector3(-1, 1.5, 1), World.agents.values())
-	_save(pic, "05_giocatore_visto_dagli_agenti")
+	_save(pic, "05_player_seen_by_agents")
 	build.toggle()
 	# 6. settings menu
 	player.global_position = Vector3(-3, 0.1, 12)

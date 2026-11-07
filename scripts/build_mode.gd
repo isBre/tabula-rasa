@@ -35,7 +35,7 @@ func toggle() -> void:
 	if not active:
 		_drop(false)
 		selected_id = ""
-	ui.add_chat("Sistema", "Modalità costruzione ON: clic seleziona · G afferra/posa · R/Shift+R ruota · rotellina ruota (Shift: scala) · +/- scala · C duplica · X elimina · Ctrl+Z annulla · B esci" if active else "Modalità costruzione OFF")
+	ui.add_chat("System", "Build mode ON: click selects · G grabs/drops · R/Shift+R rotates · wheel rotates (Shift: scales) · +/- scales · C duplicates · X deletes · Ctrl+Z undoes · B exits" if active else "Build mode OFF")
 
 
 func _node():
@@ -48,8 +48,8 @@ func status_text() -> String:
 		return ""
 	var n = _node()
 	if n == null:
-		return "COSTRUZIONE · mira e clicca per selezionare"
-	return 'COSTRUZIONE · %s "%s"%s' % [selected_id, n.get_meta("label"), " (afferrato: clic per posare, Esc annulla)" if grabbed else ""]
+		return "BUILD · aim and click to select"
+	return 'BUILD · %s "%s"%s' % [selected_id, n.get_meta("label"), " (grabbed: click to drop, Esc cancels)" if grabbed else ""]
 
 
 func handle_input(event: InputEvent) -> bool:
@@ -138,7 +138,7 @@ func _drop(commit: bool) -> void:
 	if not commit:
 		n.global_transform = _grab_start
 		return
-	_record("spostato %s in %s" % [selected_id, World._v(n.global_position)], "")
+	_record("moved %s to %s" % [selected_id, World._v(n.global_position)], "")
 
 
 func _rotate(deg: float) -> void:
@@ -147,7 +147,7 @@ func _rotate(deg: float) -> void:
 		return
 	n.rotate_y(deg_to_rad(deg))
 	if not grabbed:
-		_record("ruotato %s" % selected_id, "rot_" + selected_id)
+		_record("rotated %s" % selected_id, "rot_" + selected_id)
 
 
 func _scale(f: float) -> void:
@@ -156,7 +156,7 @@ func _scale(f: float) -> void:
 		return
 	n.scale = (n.scale * f).clamp(Vector3.ONE * 0.05, Vector3.ONE * 50.0)
 	if not grabbed:
-		_record("scalato %s (x%.2f)" % [selected_id, n.scale.x], "scale_" + selected_id)
+		_record("scaled %s (x%.2f)" % [selected_id, n.scale.x], "scale_" + selected_id)
 
 
 func _duplicate() -> void:
@@ -166,10 +166,10 @@ func _duplicate() -> void:
 		return
 	var r := World.duplicate_entity(selected_id, "player")
 	if not r.ok:
-		ui.add_chat("Sistema", r.text)
+		ui.add_chat("System", r.text)
 		return
 	selected_id = r.id
-	_record("duplicato in %s" % r.id, "")
+	_record("duplicated into %s" % r.id, "")
 	_grab()
 
 
@@ -180,12 +180,12 @@ func _delete() -> void:
 	grabbed = false
 	World.delete_object({"id": id}, "player")
 	selected_id = ""
-	_record("eliminato %s" % id, "")
+	_record("deleted %s" % id, "")
 
 
 func _record(summary: String, merge_key: String) -> void:
-	history.commit("giocatore", summary, merge_key)
-	team.broadcast_context("[Il giocatore, in modalità costruzione, ha %s]" % summary)
+	history.commit("player", summary, merge_key)
+	team.broadcast_context("[The player, in build mode, %s]" % summary)
 
 
 func _process(_delta: float) -> void:

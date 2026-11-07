@@ -1,11 +1,11 @@
 {
-	"author": "Scultore",
-	"description": "Frigorifero retrò crema con angoli arrotondati in alto, due sportelli, maniglie cromate verticali e zoccolo scuro. 0.74x1.6x0.78 m, fronte +Z.",
-	"name": "frigorifero_retro_crema",
+	"author": "Sculptor",
+	"description": "Retro cream fridge with rounded top corners, two doors, vertical chrome handles and a dark plinth. 0.74x1.6x0.78 m, front +Z.",
+	"name": "retro_cream_fridge",
 	"parts": [
 		{
-			"id": "zoccolo",
-			"mat": "ferro_scuro",
+			"id": "plinth",
+			"mat": "dark_iron",
 			"position": [
 				0.0,
 				0.0,
@@ -21,7 +21,7 @@
 		{
 			"axis": "z",
 			"depth": 0.7,
-			"id": "corpo",
+			"id": "body",
 			"mat": "#efe2bd",
 			"polygon": [
 				[
@@ -73,8 +73,8 @@
 			"shape": "extrude"
 		},
 		{
-			"id": "fessura",
-			"mat": "ferro_scuro",
+			"id": "door_gap",
+			"mat": "dark_iron",
 			"position": [
 				0.0,
 				1.1,
@@ -89,8 +89,8 @@
 		},
 		{
 			"height": 0.22,
-			"id": "maniglia_alta",
-			"mat": "metallo",
+			"id": "upper_handle",
+			"mat": "metal",
 			"position": [
 				0.27,
 				1.18,
@@ -102,8 +102,8 @@
 		},
 		{
 			"height": 0.45,
-			"id": "maniglia_bassa",
-			"mat": "metallo",
+			"id": "lower_handle",
+			"mat": "metal",
 			"position": [
 				0.27,
 				0.5,
@@ -114,8 +114,8 @@
 			"sides": 8.0
 		},
 		{
-			"id": "attacco",
-			"mat": "metallo",
+			"id": "handle_mount",
+			"mat": "metal",
 			"positions": [
 				[
 					0.27,
@@ -147,7 +147,7 @@
 		},
 		{
 			"id": "logo",
-			"mat": "metallo",
+			"mat": "metal",
 			"position": [
 				-0.15,
 				1.25,
@@ -161,8 +161,8 @@
 			]
 		},
 		{
-			"id": "bordo",
-			"mat": "metallo",
+			"id": "trim",
+			"mat": "metal",
 			"position": [
 				-0.35,
 				0.2,
@@ -177,5 +177,5 @@
 		}
 	],
 	"saved": "2026-11-07T12:35:40",
-	"tags": "frigo cucina elettrodomestico retro cromo"
+	"tags": "fridge kitchen appliance retro chrome"
 }

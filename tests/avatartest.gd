@@ -20,26 +20,26 @@ func _ready() -> void:
 	player.global_position = Vector3(0, 0.1, 0)
 	player.rotation = Vector3(0, deg_to_rad(-30), 0)
 	player.head.rotation = Vector3.ZERO
-	World.run_script({"code": "extends Node3D\nfunc _ready():\n\tadd_child(Shapes.tree(\"round\", 4, 2))\n", "position": [2, 0, -4], "name": "albero"}, "Paesaggista")
+	World.run_script({"code": "extends Node3D\nfunc _ready():\n\tadd_child(Shapes.tree(\"round\", 4, 2))\n", "position": [2, 0, -4], "name": "tree"}, "Landscaper")
 	await get_tree().create_timer(0.6).timeout
 	var shots: Array = []
-	shots.append(await _shot("fermo"))
+	shots.append(await _shot("idle"))
 	_key(KEY_W, true)
 	await get_tree().create_timer(0.35).timeout
-	shots.append(await _shot("cammina"))
+	shots.append(await _shot("walking"))
 	_key(KEY_W, false)
 	await get_tree().create_timer(0.6).timeout
 	build.toggle()
 	player.head.rotation.x = 0.25
 	await get_tree().create_timer(0.5).timeout
-	shots.append(await _shot("costruisce"))
+	shots.append(await _shot("building"))
 	build.toggle()
 	player.head.rotation.x = 0.0
 	player.flying = true
 	player.global_position = Vector3(0, 2.5, 0)
 	_key(KEY_W, true)
 	await get_tree().create_timer(0.4).timeout
-	shots.append(await _shot("vola"))
+	shots.append(await _shot("flying"))
 	_key(KEY_W, false)
 	var sheet := Image.create(1600, 900, false, Image.FORMAT_RGB8)
 	for i in 4:
@@ -52,7 +52,7 @@ func _ready() -> void:
 	await get_tree().create_timer(0.8).timeout
 	var view := get_viewport().get_texture().get_image()
 	view.save_jpg(ProjectSettings.globalize_path("res://tests/avatartest_view.jpg"))
-	_out.append("world state line: " + World.describe("Critico").get_slice("\n", 0))
+	_out.append("world state line: " + World.describe("Critic").get_slice("\n", 0))
 	var f := FileAccess.open("res://tests/avatartest_output.txt", FileAccess.WRITE)
 	f.store_string("\n".join(_out))
 	f.close()

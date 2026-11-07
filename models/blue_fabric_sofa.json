@@ -1,12 +1,12 @@
 {
-	"author": "Scultore",
-	"description": "Divano a tre posti in tessuto blu con braccioli, schienale, tre cuscini seduta e tre dorsali, cuscino giallo decorativo, gambe in legno. 2.16x0.95x0.94 m, fronte +Z.",
-	"name": "divano_tessuto_blu",
+	"author": "Sculptor",
+	"description": "Three-seat sofa in blue fabric with armrests, backrest, three seat and three back cushions, a yellow throw pillow, wooden legs. 2.16x0.95x0.94 m, front +Z.",
+	"name": "blue_fabric_sofa",
 	"parts": [
 		{
 			"height": 0.12,
-			"id": "gamba",
-			"mat": "legno",
+			"id": "leg",
+			"mat": "wood",
 			"mirror": "x",
 			"positions": [
 				[
@@ -40,7 +40,7 @@
 			]
 		},
 		{
-			"id": "schienale",
+			"id": "backrest",
 			"mat": "#34528a",
 			"position": [
 				0.0,
@@ -55,7 +55,7 @@
 			]
 		},
 		{
-			"id": "bracciolo",
+			"id": "armrest",
 			"mat": "#34528a",
 			"mirror": "x",
 			"positions": [
@@ -73,7 +73,7 @@
 			]
 		},
 		{
-			"id": "bracciolo_top",
+			"id": "armrest_top",
 			"mat": "#3b5b92",
 			"mirror": "x",
 			"positions": [
@@ -91,7 +91,7 @@
 			]
 		},
 		{
-			"id": "seduta",
+			"id": "seat",
 			"mat": "#4a6ca6",
 			"positions": [
 				[
@@ -118,7 +118,7 @@
 			]
 		},
 		{
-			"id": "cusc_schiena",
+			"id": "back_cushion",
 			"mat": "#4a6ca6",
 			"positions": [
 				[
@@ -150,7 +150,7 @@
 			]
 		},
 		{
-			"id": "cuscino_dec",
+			"id": "throw_pillow",
 			"mat": "#e8c46a",
 			"position": [
 				0.7,
@@ -171,5 +171,5 @@
 		}
 	],
 	"saved": "2026-11-07T12:35:40",
-	"tags": "divano sofa salotto soggiorno"
+	"tags": "sofa couch living room lounge"
 }

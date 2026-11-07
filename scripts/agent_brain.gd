@@ -14,19 +14,19 @@ const AUTONOMY_JITTER := 40.0      # ...plus a random amount, so agents don't al
 const MAX_AUTONOMOUS_TURNS := 3    # free-time turns in a row without new events
 const AGENT_BUDGET := 4            # turns other agents can trigger between two player messages
 const KEEP_MESSAGES := 30
-const STATE_MARK := "\n\n=== STATO DEL MONDO ===\n"
+const STATE_MARK := "\n\n=== WORLD STATE ===\n"
 const MUTATING := ["place", "spawn_asset", "spawn_primitive", "modify_object", "delete_object", "run_script", "attach_script", "edit_script", "spawn_blueprint", "set_environment", "update_board"]
 
 const BUILD_TOOLS := ["save_blueprint"]   # plus MUTATING
 const MODEL_TOOLS := ["design_model", "save_model"]
 const SEE_TOOLS := ["take_photo", "inspect_visual", "preview_assets", "plan_view"]
 
-const NPC_AUTONOMY_PROMPT := "[Tempo libero] Nessuno ti ha parlato di recente. Vivi il tuo personaggio: fai UNA piccola cosa coerente con chi sei (passeggia fino a un posto che ti interessa con move_to, guarda cosa hanno costruito, saluta o commenta con say). Se non hai niente da dire, rispondi solo con una brevissima frase di testo, senza tool."
-const AUTONOMY_PROMPT := "[Tempo libero] Nessuno ti ha scritto di recente. Se hai un'idea coerente con il tuo ruolo e con la lavagna, realizza UN piccolo passo e annuncialo con say. Se non c'è niente di utile da fare, rispondi solo con una brevissima frase di testo, senza tool."
+const NPC_AUTONOMY_PROMPT := "[Free time] Nobody has talked to you lately. Live your character: do ONE small thing that fits who you are (stroll to a place that interests you with move_to, look at what they built, greet or comment with say). If you have nothing to say, just answer with a very short sentence of text, no tools."
+const AUTONOMY_PROMPT := "[Free time] Nobody has written to you lately. If you have an idea that fits your role and the board, do ONE small step and announce it with say. If there is nothing useful to do, just answer with a very short sentence of text, no tools."
 
 var team   # team.gd
 var body   # agent.gd
-var agent_name := "Agente"
+var agent_name := "Agent"
 var role := ""
 var model := DEFAULT_MODEL
 var model_for_player := ""   # optional stronger model for turns started by the player
@@ -92,7 +92,7 @@ func queue_agent_event(text: String) -> void:
 		_agent_budget -= 1
 		queue_event(text)
 	else:
-		add_context(text + " (limite di scambi tra agenti raggiunto: potrai rispondere quando il giocatore riparla)")
+		add_context(text + " (limit of exchanges between agents reached: you can answer when the player speaks again)")
 
 
 func reset_agent_budget() -> void:
@@ -154,10 +154,10 @@ func _try_start() -> void:
 		return
 	if team.over_budget():
 		_pending.clear()
-		_set_status("fermo: tetto di spesa")
+		_set_status("stopped: spending cap")
 		return
 	_strip_old_states()
-	var player_turn := _pending.any(func(p): return str(p).begins_with("[Il giocatore ti dice]"))
+	var player_turn := _pending.any(func(p): return str(p).begins_with("[The player tells you]"))
 	current_model = model_for_player if player_turn and model_for_player != "" else model
 	var text := "\n".join(PackedStringArray(_context + _pending)) + STATE_MARK + World.describe(agent_name)
 	_context.clear()
@@ -172,7 +172,7 @@ func _try_start() -> void:
 	_retries = 0
 	_idle_time = 0.0
 	_turn_actions.clear()
-	_set_status("sta pensando...")
+	_set_status("thinking...")
 	_send()
 
 
@@ -198,7 +198,7 @@ func _permissions_text() -> String:
 	if not can_build:
 		lines.append("- You CANNOT build, place, move, modify or delete anything, nor change the environment or the board: you have no tools for it. You are a character living in this world (an NPC): talk, walk around, react to what happens, have opinions and ideas. Ignore the building instructions below (they are only there so you understand how the others work). If someone asks you to build, say it's not your job and suggest who could do it.")
 	if not can_model:
-		lines.append("- You cannot design or save models: if one is missing, ask a teammate who can (the Scultore, if present).")
+		lines.append("- You cannot design or save models: if one is missing, ask a teammate who can (the Sculptor, if present).")
 	if not can_see:
 		lines.append("- You cannot take photos or visual inspections: rely on the world state text.")
 	if lines.is_empty():
@@ -229,7 +229,7 @@ func _send() -> void:
 	_request_epoch = _epoch
 	var err := _http.request(API_URL, headers, HTTPClient.METHOD_POST, JSON.stringify(body_data))
 	if err != OK:
-		_fail("Impossibile inviare la richiesta (errore %d)." % err)
+		_fail("Couldn't send the request (error %d)." % err)
 
 
 func _on_request_completed(result: int, code: int, _headers: PackedStringArray, raw_body: PackedByteArray) -> void:
@@ -239,15 +239,15 @@ func _on_request_completed(result: int, code: int, _headers: PackedStringArray, 
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
 		if code in [429, 500, 502, 503, 529] and _retries < 3:
 			_retries += 1
-			_set_status("API occupata, riprovo...")
+			_set_status("API busy, retrying...")
 			await get_tree().create_timer(4.0 * _retries).timeout
 			_send()
 			return
-		_fail("Errore API (risultato %d, HTTP %d): %s" % [result, code, raw.left(500)])
+		_fail("API error (result %d, HTTP %d): %s" % [result, code, raw.left(500)])
 		return
 	var data = JSON.parse_string(raw)
 	if not data is Dictionary:
-		_fail("Risposta API non leggibile.")
+		_fail("Unreadable API response.")
 		return
 	team.add_usage(self, current_model, data.get("usage", {}), _images_in_request, output_split(data.get("content", [])))
 	_images_in_request = 0
@@ -263,12 +263,12 @@ func _on_request_completed(result: int, code: int, _headers: PackedStringArray, 
 			"text":
 				var t := str(block.get("text", "")).strip_edges()
 				if t != "":
-					World.chat_message.emit("Pensiero", "%s: %s" % [agent_name, t])
+					World.chat_message.emit("Thought", "%s: %s" % [agent_name, t])
 			"tool_use":
 				var tname := str(block.get("name", ""))
 				var input: Dictionary = block.get("input", {})
 				if tname in ["run_script", "attach_script"]:
-					_set_status("scrive codice...")
+					_set_status("writing code...")
 				var r: Dictionary = await _exec_tool(tname, input)
 				if not is_inside_tree():
 					return
@@ -278,7 +278,7 @@ func _on_request_completed(result: int, code: int, _headers: PackedStringArray, 
 					_images_in_request += 1
 					_save_photo(tname, r["image"])
 				if tname != "say":
-					World.chat_message.emit("Azione", "%s · %s → %s" % [agent_name, tname, str(r.text).get_slice("\n", 0).left(160)])
+					World.chat_message.emit("Action", "%s · %s → %s" % [agent_name, tname, str(r.text).get_slice("\n", 0).left(160)])
 				var result_content: Variant = str(r.text)
 				if r.has("image"):
 					result_content = [
@@ -303,12 +303,12 @@ func _on_request_completed(result: int, code: int, _headers: PackedStringArray, 
 	# the strong model has read the request and planned: the rest of the turn runs on the base one
 	if team.strong_plan_only and current_model != model:
 		current_model = model
-	_set_status("sta pensando...")
+	_set_status("thinking...")
 	_send()
 
 
 ## What the generated output was made of, in characters per kind (see Team.OUTPUT_KINDS).
-## The API only reports the total output tokens: the Costi tab splits them in proportion.
+## The API only reports the total output tokens: the Costs tab splits them in proportion.
 func output_split(content: Array) -> Dictionary:
 	var split := {}
 	for block in content:
@@ -318,10 +318,10 @@ func output_split(content: Array) -> Dictionary:
 		var size := 0
 		match str(block.get("type", "")):
 			"text":
-				kind = "pensieri"
+				kind = "thoughts"
 				size = str(block.get("text", "")).length()
 			"thinking":
-				kind = "pensieri"
+				kind = "thoughts"
 				size = str(block.get("thinking", "")).length()
 			"tool_use":
 				var tname := str(block.get("name", ""))
@@ -329,15 +329,15 @@ func output_split(content: Array) -> Dictionary:
 				size = JSON.stringify(input).length() + tname.length() + 20
 				if tname == "say":
 					var to := str(input.get("to", "")).strip_edges() if input is Dictionary else ""
-					kind = "a_te" if to == "" or to.to_lower() == "player" or to.to_lower() == "giocatore" else "tra_agenti"
+					kind = "to_player" if to == "" or to.to_lower() == "player" else "between_agents"
 				elif tname in ["run_script", "attach_script", "edit_script"]:
-					kind = "codice"
+					kind = "code"
 				elif tname in ["design_model", "save_model"]:
-					kind = "modelli"
+					kind = "models"
 				elif tname == "update_board":
-					kind = "lavagna"
+					kind = "board"
 				else:
-					kind = "strumenti"
+					kind = "tools"
 		if kind != "" and size > 0:
 			split[kind] = split.get(kind, 0) + size
 	return split
@@ -393,12 +393,12 @@ func _fail(msg: String) -> void:
 	if not _turn_actions.is_empty() and team.history:
 		team.history.commit(agent_name, ", ".join(PackedStringArray(_turn_actions)))
 		_turn_actions.clear()
-	World.chat_message.emit("Sistema", "%s: %s" % [agent_name, msg])
+	World.chat_message.emit("System", "%s: %s" % [agent_name, msg])
 	body.release_after(2.0)
 	busy = false
 	_idle_time = 0.0
 	_auto_streak = MAX_AUTONOMOUS_TURNS  # pause autonomy until something happens
-	_set_status("errore (vedi chat)")
+	_set_status("error (see chat)")
 
 
 func _strip_old_states() -> void:
@@ -409,17 +409,17 @@ func _strip_old_states() -> void:
 				if b is Dictionary and b.get("type") == "tool_use" and b.get("input") is Dictionary:
 					for key in ["code", "old", "new"]:
 						if b["input"].has(key) and str(b["input"][key]).length() > 200:
-							b["input"][key] = "(codice di un turno precedente omesso: usa inspect_object per rileggerlo)"
+							b["input"][key] = "(code from an earlier turn left out: use inspect_object to read it again)"
 		if m["role"] != "user" or not m["content"] is Array:
 			continue
 		for b in m["content"]:
 			if b is Dictionary and b.get("type") == "tool_result" and b.get("content") is Array:
-				b["content"] = b["content"].map(func(c): return {"type": "text", "text": "(foto di un turno precedente omessa)"} if c is Dictionary and c.get("type") == "image" else c)
+				b["content"] = b["content"].map(func(c): return {"type": "text", "text": "(photo from an earlier turn left out)"} if c is Dictionary and c.get("type") == "image" else c)
 			if b is Dictionary and b.get("type") == "text":
 				var t := str(b.get("text", ""))
 				var i := t.find(STATE_MARK)
 				if i >= 0:
-					b["text"] = t.substr(0, i) + "\n(stato del mondo di quel momento omesso)"
+					b["text"] = t.substr(0, i) + "\n(world state of that moment left out)"
 
 
 func _trim() -> void:
@@ -482,14 +482,14 @@ func _plan_view(input: Dictionary) -> Dictionary:
 			var c: Vector3 = World.world_aabb(o).get_center()
 			if absf(c.x - center.x) < size * 0.5 and absf(c.z - center.z) < size * 0.5:
 				labels.append([c, oid.trim_prefix("obj_")])
-		legend.append("etichette = numero dell'oggetto (obj_N)")
-	_set_status("disegna la pianta...")
+		legend.append("labels = object number (obj_N)")
+	_set_status("drawing the plan...")
 	var img: Image = await team.photographer.plan(center, size, labels, World.agents.values() + ([World.player.avatar] if World.player else []))
 	if team.ui:
-		team.ui.show_photo(agent_name + " (pianta)", img)
+		team.ui.show_photo(agent_name + " (plan)", img)
 	return {
 		"ok": true,
-		"text": "Pianta dall'alto, ortogonale: %d x %d m centrata su (%.1f, %.1f); il nord (-Z) è in alto, +X a destra, griglia 1 m (linee più marcate ogni 10 m), coordinate ai bordi. %s" % [size, size, center.x, center.z, "Parti: " + ", ".join(legend) if n != null else legend[0]],
+		"text": "Orthographic top-down plan: %d x %d m centered on (%.1f, %.1f); north (-Z) is up, +X to the right, 1 m grid (bolder lines every 10 m), coordinates on the edges. %s" % [size, size, center.x, center.z, "Parts: " + ", ".join(legend) if n != null else legend[0]],
 		"image": Marshalls.raw_to_base64(img.save_jpg_to_buffer(0.85)),
 	}
 
@@ -506,7 +506,7 @@ func _save_photo(tool_name: String, b64: String) -> void:
 	var dt := Time.get_datetime_dict_from_system()
 	var dir := ProjectSettings.globalize_path(PHOTO_DIR + "%04d-%02d-%02d" % [dt.year, dt.month, dt.day])
 	DirAccess.make_dir_recursive_absolute(dir)
-	var kind: String = {"take_photo": "foto", "inspect_visual": "ispezione", "preview_assets": "catalogo", "design_model": "laboratorio"}.get(tool_name, tool_name)
+	var kind: String = {"take_photo": "photo", "inspect_visual": "inspection", "preview_assets": "catalog", "design_model": "workshop"}.get(tool_name, tool_name)
 	var path := dir.path_join("%02d%02d%02d_%s_%s.jpg" % [dt.hour, dt.minute, dt.second, agent_name, kind])
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f:
@@ -515,7 +515,7 @@ func _save_photo(tool_name: String, b64: String) -> void:
 
 
 func _take_photo(input: Dictionary) -> Dictionary:
-	_set_status("scatta una foto...")
+	_set_status("taking a photo...")
 	var pl = World.player
 	var from: Vector3
 	var target: Vector3
@@ -536,13 +536,13 @@ func _take_photo(input: Dictionary) -> Dictionary:
 		hide_list.append(pl.avatar)
 	var img: Image = await team.photographer.capture(from, target, hide_list)
 	if img == null or img.is_empty():
-		return {"ok": false, "text": "La foto non è riuscita."}
+		return {"ok": false, "text": "The photo failed."}
 	if team.ui:
 		team.ui.show_photo(agent_name, img)
 	var jpg := img.save_jpg_to_buffer(0.8)
 	return {
 		"ok": true,
-		"text": "Foto scattata da %s verso %s (800x450)." % [World._v(from), World._v(target)],
+		"text": "Photo taken from %s toward %s (800x450)." % [World._v(from), World._v(target)],
 		"image": Marshalls.raw_to_base64(jpg),
 	}
 
@@ -551,16 +551,16 @@ func _inspect_visual(input: Dictionary) -> Dictionary:
 	var id := str(input.get("id", ""))
 	var n = World._get_entity(id)
 	if n == null:
-		return {"ok": false, "text": "Oggetto '%s' non trovato." % id}
-	_set_status("ispeziona %s..." % id)
+		return {"ok": false, "text": "Object '%s' not found." % id}
+	_set_status("inspecting %s..." % id)
 	var box: AABB = World.world_aabb(n)
 	body.move_to(box.get_center() + Vector3(0, box.size.y * 0.5 + 1.5, box.size.z * 0.5 + 3.0))
 	var sheet: Image = await team.photographer.contact_sheet(box, World.agents.values())
 	if team.ui:
-		team.ui.show_photo(agent_name + " (ispezione " + id + ")", sheet)
+		team.ui.show_photo(agent_name + " (inspection " + id + ")", sheet)
 	return {
 		"ok": true,
-		"text": "Ispezione di %s: 4 viste inquadrate automaticamente. In alto a sinistra: fronte (da +Z). In alto a destra: lato (da +X). In basso a sinistra: retro in 3/4 (da -X -Z, dall'alto). In basso a destra: dall'alto." % id,
+		"text": "Inspection of %s: 4 automatically framed views. Top left: front (from +Z). Top right: side (from +X). Bottom left: back 3/4 (from -X -Z, from above). Bottom right: from above." % id,
 		"image": Marshalls.raw_to_base64(sheet.save_jpg_to_buffer(0.8)),
 	}
 
@@ -574,18 +574,18 @@ func _walk_test(input: Dictionary) -> Dictionary:
 		for v in via:
 			pts.append(World.vec3(v, pts[-1]))
 	if not input.has("to"):
-		return {"ok": false, "text": "Serve 'to'."}
+		return {"ok": false, "text": "'to' is required."}
 	pts.append(World.vec3(input.get("to")))
-	_set_status("prova il percorso...")
+	_set_status("testing the path...")
 	var r: Dictionary = await team.walk_tester.run(pts, color)
-	var txt := "Esito: %s dopo %.1f s simulati, %d salti, posizione finale %s." % [r.outcome, r.seconds, r.jumps, World._v(r.position)]
-	if r.outcome != "arrivato":
-		txt += " Si è fermato andando verso il punto %d del percorso." % r.waypoint
+	var txt := "Result: %s after %.1f simulated s, %d jumps, final position %s." % [r.outcome, r.seconds, r.jumps, World._v(r.position)]
+	if r.outcome != "arrived":
+		txt += " It stopped while heading to point %d of the path." % r.waypoint
 	if r.has("obstacle"):
-		txt += " Ostacolo: %s." % r.obstacle
+		txt += " Obstacle: %s." % r.obstacle
 	if r.max_drop > 3.0:
-		txt += " Attenzione: una caduta di %.1f m lungo il percorso." % r.max_drop
-	txt += " (Il giocatore vede la scia del percorso per 10 s.)"
+		txt += " Warning: a %.1f m drop along the path." % r.max_drop
+	txt += " (The player sees the trail of the path for 10 s.)"
 	return {"ok": true, "text": txt}
 
 
@@ -621,37 +621,37 @@ func _site_point(tname: String, input: Dictionary):
 
 func _exec_tool(tname: String, input: Dictionary) -> Dictionary:
 	if not allows(tname):
-		return {"ok": false, "text": "Non hai il permesso di usare %s: il giocatore non te lo consente." % tname}
+		return {"ok": false, "text": "You are not allowed to use %s: the player doesn't let you." % tname}
 	var site = _site_point(tname, input)
 	if site != null:
-		_set_status("va al lavoro...")
+		_set_status("going to work...")
 		await body.go_work(site)
-		_set_status("lavora...")
+		_set_status("working...")
 	match tname:
 		"say":
 			var t := str(input.get("text", ""))
 			var to := str(input.get("to", "")).strip_edges().trim_prefix("@")
-			if to.to_lower() in ["giocatore", "player"]:
+			if to.to_lower() == "player":
 				to = ""
-			if to != "" and to.to_lower() != "tutti" and team.find_brain(to) == null:
-				return {"ok": false, "text": "Nessun agente si chiama '%s'. Squadra: %s" % [to, team.names_list()]}
+			if to != "" and to.to_lower() != "all" and team.find_brain(to) == null:
+				return {"ok": false, "text": "No agent is called '%s'. Team: %s" % [to, team.names_list()]}
 			# walk up to whoever it talks to, then speak
 			if to == "" and World.player:
 				await body.approach(World.player)
-			elif to != "" and to.to_lower() != "tutti":
+			elif to != "" and to.to_lower() != "all":
 				var mate = team.find_brain(to)
 				if mate != null and mate != self:
 					await body.approach(mate.body)
 			if not is_inside_tree():
-				return {"ok": false, "text": "interrotto"}
+				return {"ok": false, "text": "interrupted"}
 			_set_status("")
 			body.say(t if to == "" else "→ %s: %s" % [to, t])
 			said.emit(self, to, t)
-			return {"ok": true, "text": "Messaggio inviato" + (" a " + to if to != "" else " al giocatore") + "."}
+			return {"ok": true, "text": "Message sent" + (" to " + to if to != "" else " to the player") + "."}
 		"move_to":
 			var p := World.vec3(input.get("position"), body.global_position)
 			body.move_to(p)
-			return {"ok": true, "text": "Mi sto spostando verso %s." % World._v(p)}
+			return {"ok": true, "text": "Moving to %s." % World._v(p)}
 		"spawn_primitive":
 			if input.get("anchor") is Dictionary:
 				await get_tree().physics_frame
@@ -684,59 +684,59 @@ func _exec_tool(tname: String, input: Dictionary) -> Dictionary:
 			if input.has("query"):
 				queries.append(input["query"])
 			if queries.is_empty():
-				return {"ok": true, "text": "Pacchetti: " + Assets.packs_summary()}
+				return {"ok": true, "text": "Library: " + Assets.packs_summary()}
 			var limit := clampi(int(input.get("limit", 12)), 1, 40)
 			var parts := PackedStringArray()
 			for q in queries.slice(0, 8):
 				var hits := Assets.search(str(q), limit)
 				if hits.is_empty():
-					parts.append("'%s': nessun modello: progettalo con design_model (o chiedilo allo Scultore)" % q)
+					parts.append("'%s': no model: design it with design_model (or ask the Sculptor)" % q)
 				else:
 					parts.append("'%s':\n  %s" % [q, "\n  ".join(PackedStringArray(hits.map(func(e): return Assets.describe_entry(e))))])
-			return {"ok": true, "text": "Risultati (dimensioni native L x A x P in metri):\n" + "\n".join(parts)}
+			return {"ok": true, "text": "Results (native size W x H x D in meters):\n" + "\n".join(parts)}
 		"preview_assets":
 			var ids: Array = input.get("ids", []) if input.get("ids") is Array else []
 			ids = ids.filter(func(i): return Assets.has(str(i))).slice(0, 9)
 			if ids.is_empty():
-				return {"ok": false, "text": "Nessun id valido: usa gli id restituiti da search_assets."}
-			_set_status("guarda dei modelli...")
+				return {"ok": false, "text": "No valid id: use the ids returned by search_assets."}
+			_set_status("looking at models...")
 			var sheet: Image = await Assets.preview(ids)
 			if team.ui:
-				team.ui.show_photo(agent_name + " (catalogo)", sheet)
+				team.ui.show_photo(agent_name + " (catalog)", sheet)
 			var legend := PackedStringArray()
 			for i in ids.size():
 				legend.append("%d: %s" % [i + 1, ids[i]])
-			return {"ok": true, "text": "Anteprima a griglia 3x3, da sinistra a destra e dall'alto in basso: " + ", ".join(legend), "image": Marshalls.raw_to_base64(sheet.save_jpg_to_buffer(0.8))}
+			return {"ok": true, "text": "3x3 grid preview, left to right and top to bottom: " + ", ".join(legend), "image": Marshalls.raw_to_base64(sheet.save_jpg_to_buffer(0.8))}
 		"spawn_asset":
 			await get_tree().physics_frame   # surfaces built earlier in this turn are now solid
 			return _with_check(await _settled(World.spawn_asset(input, agent_name)))
 		"design_model":
-			_set_status("modella...")
+			_set_status("modeling...")
 			var dr: Dictionary = await Assets.design(input)
 			if dr.ok:
 				_draft = input.duplicate(true)
 				if team.ui:
-					team.ui.show_photo(agent_name + " (laboratorio)", dr.sheet)
+					team.ui.show_photo(agent_name + " (workshop)", dr.sheet)
 				dr.erase("sheet")
 			return dr
 		"save_model":
 			var rec: Dictionary = input if input.get("parts") is Array else _draft
 			if rec.is_empty():
-				return {"ok": false, "text": "Niente da salvare: prima prova il modello con design_model (o passa parts)."}
+				return {"ok": false, "text": "Nothing to save: try the model with design_model first (or pass parts)."}
 			return Assets.save_model(str(input.get("name", rec.get("name", ""))), rec, str(input.get("description", rec.get("description", ""))), agent_name, str(input.get("tags", "")))
 		"get_model":
 			var gid := Assets.clean_name(str(input.get("name", "")))
 			if not Assets.has(gid):
-				return {"ok": false, "text": "Modello '%s' non trovato. Libreria: %s" % [gid, Assets.packs_summary()]}
+				return {"ok": false, "text": "Model '%s' not found. Library: %s" % [gid, Assets.packs_summary()]}
 			var rc := Assets.recipe(gid)
-			return {"ok": true, "text": "Ricetta di %s (%s):\n%s" % [gid, rc.get("description", ""), JSON.stringify({"parts": rc.get("parts", [])})]}
+			return {"ok": true, "text": "Recipe of %s (%s):\n%s" % [gid, rc.get("description", ""), JSON.stringify({"parts": rc.get("parts", [])})]}
 		"add_color":
 			return Shapes.add_color(str(input.get("name", "")), str(input.get("color", "")), str(input.get("group", "")), str(input.get("description", "")), float(input.get("rough", 0.85)), float(input.get("metal", 0.0)), float(input.get("glow", 0.0)), input.get("force", false) == true)
 		"check_placement":
 			await get_tree().physics_frame
 			var cid := str(input.get("id", ""))
 			if World._get_entity(cid) == null:
-				return {"ok": false, "text": "Oggetto '%s' non trovato." % cid}
+				return {"ok": false, "text": "Object '%s' not found." % cid}
 			return {"ok": true, "text": World.placement_report(cid)}
 		"plan_view":
 			return await _plan_view(input)
@@ -750,7 +750,7 @@ func _exec_tool(tname: String, input: Dictionary) -> Dictionary:
 			return _with_check(await _settled(World.edit_script(input, agent_name)), str(input.get("id", "")))
 		"set_environment":
 			if World.environment == null:
-				return {"ok": false, "text": "Ambiente non disponibile."}
+				return {"ok": false, "text": "Environment not available."}
 			return World.environment.set_values(input)
 		"save_blueprint":
 			return World.save_blueprint(input, agent_name)
@@ -763,8 +763,8 @@ func _exec_tool(tname: String, input: Dictionary) -> Dictionary:
 				World.board.erase(agent_name)
 			else:
 				World.board[agent_name] = txt
-			return {"ok": true, "text": "La tua sezione della lavagna è aggiornata."}
-	return {"ok": false, "text": "Tool sconosciuto: " + tname}
+			return {"ok": true, "text": "Your section of the board is updated."}
+	return {"ok": false, "text": "Unknown tool: " + tname}
 
 
 const V3 := {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
@@ -773,7 +773,7 @@ const ANCHOR := {
 	"type": "object",
 	"description": "Place it RELATIVE TO something else instead of computing coordinates: the game does the geometry from the real sizes (position is not needed). The result reports the final position and footprint.",
 	"properties": {
-		"to": {"description": "the reference: an object id (obj_12), a named node inside a script object (obj_12/cucina), its Nth part (obj_12/3, numbered as in plan_view and the placement check), \"player\", or a point [x,y,z]"},
+		"to": {"description": "the reference: an object id (obj_12), a named node inside a script object (obj_12/kitchen), its Nth part (obj_12/3, numbered as in plan_view and the placement check), \"player\", or a point [x,y,z]"},
 		"side": {"type": "string", "enum": ["front", "back", "left", "right", "top", "bottom", "north", "south", "east", "west", "inside"], "description": "front/back/left/right are the target's OWN sides (front = where it faces; left/right as if you were the target looking out of its front). north=-Z, south=+Z, east=+X, west=-X. top = resting on it. inside = within its bounds (room floor, plaza, house). Default front, or inside when wall is given"},
 		"wall": {"description": "only with side=inside: back against the inner wall on that side, e.g. \"back\" or \"north\"; two sides for a corner, e.g. [\"back\", \"left\"]. Finds the real wall surface and turns the front into the room"},
 		"align": {"type": "string", "description": "flush a face with the same face of the target instead of centering: \"back\" (nightstand flush with the headboard), \"left\", \"front,left\"..."},
@@ -788,8 +788,8 @@ const ANCHOR := {
 const TOOLS := [
 	{
 		"name": "say",
-		"description": "Say something, shown as a speech bubble above you and in the chat (the player always sees it). Without `to` you speak to the player. With to=<agent name> you speak to that teammate and wake them up so they answer/act. With to=\"tutti\" you inform everyone without waking anyone.",
-		"input_schema": {"type": "object", "properties": {"text": {"type": "string"}, "to": {"type": "string", "description": "optional: an agent name, or \"tutti\""}}, "required": ["text"]},
+		"description": "Say something, shown as a speech bubble above you and in the chat (the player always sees it). Without `to` you speak to the player. With to=<agent name> you speak to that teammate and wake them up so they answer/act. With to=\"all\" you inform everyone without waking anyone.",
+		"input_schema": {"type": "object", "properties": {"text": {"type": "string"}, "to": {"type": "string", "description": "optional: an agent name, or \"all\""}}, "required": ["text"]},
 	},
 	{
 		"name": "move_to",
@@ -798,7 +798,7 @@ const TOOLS := [
 	},
 	{
 		"name": "search_assets",
-		"description": "Search the team's MODEL LIBRARY (models designed by the agents) by name or words, Italian or English. Several queries at once. Returns names, real sizes and descriptions. If nothing fits, design the model with design_model.",
+		"description": "Search the team's MODEL LIBRARY (models designed by the agents) by name or words. Several queries at once. Returns names, real sizes and descriptions. If nothing fits, design the model with design_model.",
 		"input_schema": {"type": "object", "properties": {"queries": {"type": "array", "items": {"type": "string"}}, "limit": {"type": "integer", "description": "results per query, default 12"}}, "required": ["queries"]},
 	},
 	{
@@ -812,7 +812,7 @@ const TOOLS := [
 		"input_schema": {
 			"type": "object",
 			"properties": {
-				"asset": {"type": "string", "description": "id from search_assets, e.g. kaykit_furniture/chair_A"},
+				"asset": {"type": "string", "description": "name from search_assets, e.g. wooden_bench"},
 				"position": V3,
 				"rotation_deg": V3,
 				"height": {"type": "number"},
@@ -835,7 +835,7 @@ const TOOLS := [
 	{
 		"name": "save_model",
 		"description": "Save your last design_model recipe (or the `parts` you pass) into the MODEL LIBRARY, so anyone can place it with spawn_asset. Same name = new version: copies in the world update too.",
-		"input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "italian snake_case, e.g. divano_tessuto"}, "description": {"type": "string", "description": "one line: what it is, style, colors"}, "tags": {"type": "string", "description": "optional search words"}, "parts": {"type": "array", "items": {"type": "object"}}}, "required": ["name", "description"]},
+		"input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "English snake_case, e.g. fabric_sofa"}, "description": {"type": "string", "description": "one line: what it is, style, colors"}, "tags": {"type": "string", "description": "optional search words"}, "parts": {"type": "array", "items": {"type": "object"}}}, "required": ["name", "description"]},
 	},
 	{
 		"name": "get_model",
@@ -845,7 +845,7 @@ const TOOLS := [
 	{
 		"name": "add_color",
 		"description": "Add a color to the team's shared PALETTE (all worlds), when one is really missing and will be reused. Refused if almost identical to an existing one (use that instead).",
-		"input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "italian snake_case, e.g. legno_noce"}, "color": {"type": "string", "description": "#rrggbb"}, "group": {"type": "string", "description": "e.g. legni, metalli, tessuti e superfici, natura, luci"}, "description": {"type": "string", "description": "what it's for, a few words"}, "rough": {"type": "number", "description": "0 glossy .. 1 matte, default 0.85"}, "metal": {"type": "number"}, "glow": {"type": "number", "description": "only for lights, 1-3"}, "force": {"type": "boolean"}}, "required": ["name", "color", "group", "description"]},
+		"input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "English snake_case, e.g. walnut_wood"}, "color": {"type": "string", "description": "#rrggbb"}, "group": {"type": "string", "description": "e.g. woods, metals, fabrics and surfaces, nature, lights"}, "description": {"type": "string", "description": "what it's for, a few words"}, "rough": {"type": "number", "description": "0 glossy .. 1 matte, default 0.85"}, "metal": {"type": "number"}, "glow": {"type": "number", "description": "only for lights, 1-3"}, "force": {"type": "boolean"}}, "required": ["name", "color", "group", "description"]},
 	},
 	{
 		"name": "check_placement",
@@ -895,7 +895,7 @@ const TOOLS := [
 	},
 	{
 		"name": "place",
-		"description": "Move and turn an EXISTING object relative to another one, without coordinates (same anchor as the building tools). The best way to fix placement: obj_8 to the right of obj_5, obj_9 against the back wall of obj_3/camera, obj_4 on top of obj_2.",
+		"description": "Move and turn an EXISTING object relative to another one, without coordinates (same anchor as the building tools). The best way to fix placement: obj_8 to the right of obj_5, obj_9 against the back wall of obj_3/bedroom, obj_4 on top of obj_2.",
 		"input_schema": {"type": "object", "properties": {"id": {"type": "string"}, "anchor": ANCHOR}, "required": ["id", "anchor"]},
 	},
 	{
@@ -972,20 +972,20 @@ const TOOLS := [
 	},
 	{
 		"name": "set_environment",
-		"description": "Change the world's atmosphere. time_of_day: hour 0-24 (sunrise ~6.5, sunset ~19, night is dark: emissive materials and lights shine). cycle_minutes: real minutes for a full day (0 = time stands still). fog: 0-1. ground: griglia (dark neon grid) | prato | sabbia | neve | pietra | terra. Change it only when it serves the scene or the player asks.",
+		"description": "Change the world's atmosphere. time_of_day: hour 0-24 (sunrise ~6.5, sunset ~19, night is dark: emissive materials and lights shine). cycle_minutes: real minutes for a full day (0 = time stands still). fog: 0-1. ground: grid (dark neon grid) | grass | sand | snow | stone | dirt. Change it only when it serves the scene or the player asks.",
 		"input_schema": {
 			"type": "object",
 			"properties": {
 				"time_of_day": {"type": "number"},
 				"cycle_minutes": {"type": "number"},
 				"fog": {"type": "number"},
-				"ground": {"type": "string", "enum": ["griglia", "prato", "sabbia", "neve", "pietra", "terra"]},
+				"ground": {"type": "string", "enum": ["grid", "grass", "sand", "snow", "stone", "dirt"]},
 			},
 		},
 	},
 	{
 		"name": "save_blueprint",
-		"description": "Save an existing object (its script or primitive and its behaviors) as a reusable blueprint shared by everyone and across worlds. Use a short snake_case name (e.g. casetta_legno, lampione) and a one-line description. Save things that turned out well and will be reused.",
+		"description": "Save an existing object (its script or primitive and its behaviors) as a reusable blueprint shared by everyone and across worlds. Use a short English snake_case name (e.g. wooden_cottage, streetlight) and a one-line description. Save things that turned out well and will be reused.",
 		"input_schema": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "description": {"type": "string"}}, "required": ["id", "name", "description"]},
 	},
 	{
@@ -1022,15 +1022,15 @@ THE TEAM
 
 TEAMWORK
 - The player addresses an agent with @Name; messages without a mention go to the lead ({LEAD}). You also receive, as context, what the player says to others and what teammates say.
-- To ask a teammate for something, use say with to="<Name>": it wakes them up. to="tutti" informs everyone without waking anyone. Without `to` you talk to the player.
+- To ask a teammate for something, use say with to="<Name>": it wakes them up. to="all" informs everyone without waking anyone. Without `to` you talk to the player.
 - Agent-to-agent turns are limited between two player messages: delegate clearly and concretely in one message (what, where, which object ids), no small talk, no thanks or acknowledgements just to be polite.
 - Stick to your role. If a request fits a teammate better, delegate it.
-- If the Critico sends you feedback about your work, fix the concrete issues it lists (briefly, no discussion), unless the player said otherwise.
+- If the Critic sends you feedback about your work, fix the concrete issues it lists (briefly, no discussion), unless the player said otherwise.
 - Your body is a human in your color. It walks to where you build before each change (the player watches you work), comes to the player when you talk to them (or to the teammate you talk to), and flies to high spots and photo points. When idle it stays put and catches up only when the player gets far away. Don't redo or delete teammates' work unless asked; improve it or ask them.
 - The shared board (update_board) has one section per agent. Before building, read it and claim the area you're working in, so you don't overlap.
 
 LANGUAGE AND VOICE
-- Talk to the player in Italian, or in whatever language they write to you.
+- Talk to the player in English, or in whatever language they write to you.
 - The player only hears you through the `say` tool. Any plain text you write is shown as a faint "thought": keep it very short or skip it.
 - Keep say messages short (1-3 sentences). Be warm, a bit playful, opinionated.
 
@@ -1039,21 +1039,21 @@ THE WORLD
 - The player is ~1.8 m tall, walks (4.8 m/s, sprints 8), climbs steps up to 0.4 m without jumping, jumps about 1.25 m, and can fly. Your body is a human in your color.
 - Each user message ends with a WORLD STATE: player position, facing direction and what they are aiming at, the agents' positions, the objects (nearest to the player first, with their author), the shared board, and recent errors/prints from scripts.
 - "Here", "this", "there" usually mean what the player is aiming at, or the area in front of them (player position + facing * 4-6 m on the XZ plane).
-- The player has a visible low-poly body (blue shirt, "Giocatore" label) in your photos; the world state says what they are doing (fermo, cammina, corre, salta, vola, costruisce).
-- The player can also write and run their own scripts, and delete objects: you will see their creations (autore=player) and events in the messages. React to them.
+- The player has a visible low-poly body (blue shirt, "Player" label) in your photos; the world state says what they are doing (idle, walking, running, jumping, falling, flying, building).
+- The player can also write and run their own scripts, and delete objects: you will see their creations (author=player) and events in the messages. React to them.
 
 PLACING THINGS: ANCHORS, NOT COORDINATES
 - Whenever an object relates to another one, don't compute coordinates: give an `anchor` and the game does the geometry from the real sizes and orientations. spawn_asset, spawn_primitive, run_script and spawn_blueprint accept it; `place` moves an existing object the same way (the best way to fix a placement).
 - anchor = {to, side, wall, align, gap, offset, face}. Examples:
-  · bed against the back wall of a room: {"to": "obj_3/camera", "wall": "back"}
+  · bed against the back wall of a room: {"to": "obj_3/bedroom", "wall": "back"}
   · nightstands: {"to": "obj_7", "side": "left", "align": "back"} and the same with "right"
-  · armchair in a corner: {"to": "obj_3/soggiorno", "wall": ["back", "left"]}
+  · armchair in a corner: {"to": "obj_3/living_room", "wall": ["back", "left"]}
   · TV facing the sofa 2.5 m away: {"to": "obj_8", "side": "front", "gap": 2.5}; a chair at a desk: {"to": "obj_9", "side": "front", "gap": 0.1}
-  · lamp on a table: {"to": "obj_10", "side": "top"}; picture on a wall: {"to": "obj_3/camera", "wall": "north", "offset": [0, 1.4, 0], "snap": false}
+  · lamp on a table: {"to": "obj_10", "side": "top"}; picture on a wall: {"to": "obj_3/bedroom", "wall": "north", "offset": [0, 1.4, 0], "snap": false}
   · a well 6 m east of the fountain: {"to": "obj_2", "side": "east", "gap": 6}
 - front/back/left/right are the target's own sides (it faces its front); north/south/east/west are the world's. The front of the placed object turns by default toward the target (front/back), the same way as the target (left/right: nightstands, a row of lamps) into the room (wall), or lined up with the room (inside, no wall). Set face when that's wrong, e.g. a chair at the side of a table: {"to": "obj_9", "side": "left", "face": "toward"}.
 - With side=inside the frame is the room's own: walls and offset follow the room even if it is rotated (a compass wall = the room wall facing most that way).
-- To anchor to a room or area inside a big script object, name its nodes in the script (floor.name = "cucina") and use "obj_12/cucina"; numbers like "obj_12/3" refer to the parts as listed by plan_view and the placement check.
+- To anchor to a room or area inside a big script object, name its nodes in the script (floor.name = "kitchen") and use "obj_12/kitchen"; numbers like "obj_12/3" refer to the parts as listed by plan_view and the placement check.
 - Inside a script you can do the same with parts: after add_child(a) and add_child(b), World.place(b, {"to": a, "side": "right"}) (to = a node). Great for rows and sets of furniture in one object.
 - Only use raw coordinates for the first thing in an empty area (or a big structure), then anchor everything else to it.
 
@@ -1066,7 +1066,7 @@ PALETTE (name, color, use):
 {PALETTE}
 
 HOW TO BUILD
-- Every object people would recognize (furniture, appliances, lamps, trees, carts, signs, a house type...) is a MODEL the team designs itself: see MODELING below. Reuse what's in the MODEL LIBRARY; if what you need isn't there, design it (or ask the Scultore for detailed pieces). For many models in one place (a furnished room, a market, a forest) you can also write one run_script with add_child(Assets.instance(name, true)) for each, placed with World.place.
+- Every object people would recognize (furniture, appliances, lamps, trees, carts, signs, a house type...) is a MODEL the team designs itself: see MODELING below. Reuse what's in the MODEL LIBRARY; if what you need isn't there, design it (or ask the Sculptor for detailed pieces). For many models in one place (a furnished room, a market, a forest) you can also write one run_script with add_child(Assets.instance(name, true)) for each, placed with World.place.
 - Every model has its origin at the CENTER OF ITS BASE and its FRONT facing +Z (rotation.y = 0 -> faces +Z, PI -> faces -Z, PI/2 -> faces +X). Don't guess angles: use anchors, spawn_asset facing=[x,y,z] or "player", or Assets.face(node, target_point) in scripts. spawn_asset rests the model on the surface below by default (snap).
 - Leave clearance: keep ~0.6-0.9 m walkways. A sofa faces the coffee table/TV, chairs face their table, beds have the headboard against a wall.
 - Every building tool result ends with an automatic placement check (interpenetrations, floating pieces, by piece number). Fix what it reports before moving on (edit_script / modify_object). For rooms, plazas and streets use plan_view to see the layout from above with the grid.
@@ -1095,16 +1095,16 @@ MODELING: THE TEAM MAKES ITS OWN MODELS
 - A recipe is {"parts": [part, ...]}; each part is one Shapes-kit piece. Shapes and their params (meters):
   box size[w,h,d] | cylinder radius height sides | cone radius height sides | sphere radius detail(1-5) | lathe profile[[r,y],...] sides (revolved: vases, lamp shades, bottles, round table tops, knobs) | extrude polygon depth axis ("y": footprint [[x,z],...] raised by depth; "z": front outline [[x,y],...] extruded depth on Z: chair sides, signs, gables, arched doors) | sweep profile[[side,up],...] path[[x,y,z],...] (moldings, handles, rails) | tube path radius sides (pipes, legs of metal chairs, handles) | ribbon path width thickness | wall width height thickness openings[{x,y,w,h}] | arch width height thickness depth | roof kind(gable|hip|pyramid|shed|flat) width depth height overhang | stairs width height depth steps | fence path height spacing | tree kind(round|pine|birch|autumn) height seed | bush size seed | rock size seed roughness | text text size depth | model model(name of another saved model) height | light color energy range (a point light: inside lamp shades, lanterns, fireplaces)
 - Each piece's origin is its BOTTOM CENTER: "position" [x,y,z] is where that point goes. Also: "positions" [[x,y,z], ...] for copies (4 legs), "rotation" [x,y,z] degrees, "scale" (number or [x,y,z]), "mirror": "x" (adds a copy reflected left-right across x=0; "z" front-back; "xz" both), "anchor" {"to": "<id of an EARLIER part>", "side", "align", "gap", "offset", "face"} exactly like world anchors (seat on top of the legs, backrest on top of the seat aligned back, knob on the front of the door). Give an "id" to parts you anchor to.
-- "mat": a PALETTE name (see STYLE), or "#rrggbb" (flagged). The workshop report has a "Stile" section: fix what it says unless you have a reason.
+- "mat": a PALETTE name (see STYLE), or "#rrggbb" (flagged). The workshop report has a "Style" section: fix what it says unless you have a reason.
 - CONVENTIONS the game relies on: the FRONT is +Z (where you sit, where the doors open, what faces the room); build at real size in meters (seat 0.45 high, table 0.75, counter 0.9, door 2.1, bed top ~0.5, fridge ~1.8, lamp post ~3.5). The game re-centers the model (origin at the center of its base), merges it into one mesh and adds collision.
 - Low-poly style: chunky readable shapes, 4-25 pieces for furniture and props. Proportions and silhouette matter more than detail: a fridge needs its door gap and handle, a sofa its armrests, cushions and back. Lathe/extrude profiles give soft, characterful shapes cheaply.
-- Read the report: fix errors and parts listed as STACCATI (touching nothing: floating). Overlapping pieces are fine, that's how they join. Check the FRONT view really shows the front.
-- Names: Italian snake_case, generic enough to reuse (divano_tessuto, lampione_ferro, frigorifero_retro), with a one-line description. A variant gets a new name.
+- Read the report: fix errors and parts listed as DETACHED (touching nothing: floating). Overlapping pieces are fine, that's how they join. Check the FRONT view really shows the front.
+- Names: English snake_case, generic enough to reuse (fabric_sofa, iron_streetlight, retro_fridge), with a one-line description. A variant gets a new name.
 Example, a wooden chair (front +Z, seat at 0.45 m):
 {"parts": [
- {"id": "gamba", "shape": "box", "size": [0.05, 0.45, 0.05], "mat": "legno", "positions": [[0.2, 0, 0.2], [0.2, 0, -0.2]], "mirror": "x"},
- {"id": "seduta", "shape": "box", "size": [0.5, 0.05, 0.5], "mat": "legno_chiaro", "position": [0, 0.45, 0]},
- {"id": "schienale", "shape": "box", "size": [0.5, 0.45, 0.05], "mat": "legno", "anchor": {"to": "seduta", "side": "top", "align": "back"}}
+ {"id": "leg", "shape": "box", "size": [0.05, 0.45, 0.05], "mat": "wood", "positions": [[0.2, 0, 0.2], [0.2, 0, -0.2]], "mirror": "x"},
+ {"id": "seat", "shape": "box", "size": [0.5, 0.05, 0.5], "mat": "light_wood", "position": [0, 0.45, 0]},
+ {"id": "backrest", "shape": "box", "size": [0.5, 0.45, 0.05], "mat": "wood", "anchor": {"to": "seat", "side": "top", "align": "back"}}
 ]}
 
 SHAPES KIT (global `Shapes`, use it instead of hand-computing geometry)
@@ -1114,11 +1114,11 @@ Every builder returns a Node3D whose origin is its BOTTOM CENTER: add_child() it
 - Shapes.lathe(profile, sides=10, mat, solid): profile = [Vector2(radius, y), ...] bottom to top, start and end at radius 0 to close. Vases, columns, towers, domes, fountains, lamps, barrels, bottles.
 - Shapes.extrude(polygon, depth, mat, solid, axis="y"). axis "y": polygon = footprint [Vector2(x, z), ...] raised from 0 to depth (floors, platforms, plazas, irregular plots). axis "z": polygon = front profile [Vector2(x, y), ...] extruded in depth, centered on z=0 (signs, gears, stars, battlements, custom silhouettes).
 - Shapes.sweep(profile, path, mat, solid): closed 2D profile [Vector2(side, up), ...] dragged along path [Vector3, ...], stays upright. Shapes.tube(path, radius, sides=6, mat, solid): pipes, railings, cables, handrails. Shapes.ribbon(path, width=3, thickness=0.1, mat, solid): roads, paths, rivers (path at y=0).
-- Shapes.wall(width, height, thickness=0.25, openings=[{"x": center offset, "y": bottom, "w": w, "h": h}], mat="intonaco"): wall along X (thickness on Z) with door/window holes. Rotate rotation.y = PI/2 for walls along Z.
+- Shapes.wall(width, height, thickness=0.25, openings=[{"x": center offset, "y": bottom, "w": w, "h": h}], mat="plaster"): wall along X (thickness on Z) with door/window holes. Rotate rotation.y = PI/2 for walls along Z.
 - Shapes.arch(width, height, thickness, depth, mat): round arch, opening faces Z.
-- Shapes.roof(kind, width, depth, height, overhang=0.3, mat="tetto"): kind "gable" (ridge along Z) | "hip" | "pyramid" | "shed" | "flat". Its base sits at y=0: put it on top of the walls.
+- Shapes.roof(kind, width, depth, height, overhang=0.3, mat="roof_tiles"): kind "gable" (ridge along Z) | "hip" | "pyramid" | "shed" | "flat". Its base sits at y=0: put it on top of the walls.
 - Shapes.stairs(width, height, depth, steps=0 auto, mat): solid staircase climbing toward -Z from z=0. Risers <= 0.4 m are walkable without jumping.
-- Shapes.fence(path, height=1, spacing=2, mat="legno")
+- Shapes.fence(path, height=1, spacing=2, mat="wood")
 - Shapes.tree(kind, height=4, seed=0) kind "round" | "pine" | "birch" | "autumn" · Shapes.bush(size=1, seed) · Shapes.rock(size: Vector3 or float, seed, roughness=0.25)
 - Shapes.terrain(size=40, height=4, resolution=24, seed=0, mat="auto"): low-poly hills centered on the origin, colored by height, edges fade to y=0. Shapes.water(size_x, size_z): flat water surface.
 - Shapes.text(text, size=1, depth=0.1, mat): 3D letters facing +Z.
@@ -1128,32 +1128,32 @@ Every builder returns a Node3D whose origin is its BOTTOM CENTER: add_child() it
 Example, a small cottage:
 extends Node3D
 func _ready():
-	add_child(Shapes.box(Vector3(6.4, 0.2, 5.4), "pietra"))
-	var front := Shapes.wall(6, 3, 0.25, [{"x": 0, "y": 0, "w": 1.2, "h": 2.1}, {"x": -1.9, "y": 1.0, "w": 1.0, "h": 1.0}], "intonaco")
+	add_child(Shapes.box(Vector3(6.4, 0.2, 5.4), "stone"))
+	var front := Shapes.wall(6, 3, 0.25, [{"x": 0, "y": 0, "w": 1.2, "h": 2.1}, {"x": -1.9, "y": 1.0, "w": 1.0, "h": 1.0}], "plaster")
 	front.position = Vector3(0, 0.2, 2.5)
 	add_child(front)
-	var back := Shapes.wall(6, 3, 0.25, [{"x": 1.5, "y": 1.0, "w": 1.0, "h": 1.0}], "intonaco")
+	var back := Shapes.wall(6, 3, 0.25, [{"x": 1.5, "y": 1.0, "w": 1.0, "h": 1.0}], "plaster")
 	back.position = Vector3(0, 0.2, -2.5)
 	add_child(back)
 	for side in [-1, 1]:
-		var w := Shapes.wall(5.25, 3, 0.25, [], "intonaco")
+		var w := Shapes.wall(5.25, 3, 0.25, [], "plaster")
 		w.position = Vector3(side * 2.875, 0.2, 0)
 		w.rotation.y = PI / 2
 		add_child(w)
-	var r := Shapes.roof("gable", 6, 5.25, 2.0, 0.4, "tetto")
+	var r := Shapes.roof("gable", 6, 5.25, 2.0, 0.4, "roof_tiles")
 	r.position.y = 3.2
 	add_child(r)
-	var chimney := Shapes.box(Vector3(0.6, 1.6, 0.6), "mattoni")
+	var chimney := Shapes.box(Vector3(0.6, 1.6, 0.6), "brick")
 	chimney.position = Vector3(1.6, 3.8, -1.0)
 	add_child(chimney)
 
 BLUEPRINTS, HISTORY, ATMOSPHERE
 - Reuse before rebuilding: if a blueprint fits (world state lists them), spawn_blueprint it. When you make something good and reusable (a house type, a lamp, a tree group, a bench), save_blueprint it. Shared blueprints keep the world's style coherent.
 - Every change is recorded in a history the player can undo. If the player undoes your work, don't redo it the same way: ask or try something different.
-- set_environment controls time of day, day cycle, fog and ground style. At night, lamps (OmniLight3D + "luce_calda") make places come alive.
+- set_environment controls time of day, day cycle, fog and ground style. At night, lamps (OmniLight3D + "warm_light") make places come alive.
 
 VISION AND REVIEW
-- You can see: inspect_visual(id) shows one object from 4 framed angles; take_photo shoots any view (view="player" = exactly what the player sees, use it when they say "guarda", "che ne pensi", "vedi questo?").
+- You can see: inspect_visual(id) shows one object from 4 framed angles; take_photo shoots any view (view="player" = exactly what the player sees, use it when they say "look", "what do you think", "see this?").
 - After building something non-trivial, do a REVIEW LOOP before announcing it:
   1. measure(id): is the base on the ground (or on what it should rest on)? does it overlap things it shouldn't? is the size sensible for a 1.8 m player? is it solid if it should be?
   2. inspect_visual(id): does it look like what you meant? missing, floating, misaligned or z-fighting parts? ugly colors?

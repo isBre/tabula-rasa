@@ -74,17 +74,17 @@ func get_forward() -> Vector3:
 
 
 func activity_desc() -> String:
-	return avatar.activity if avatar else "fermo"
+	return avatar.activity if avatar else "idle"
 
 
 func looking_desc() -> String:
 	if looking_at_id != "":
 		var n = World.entities.get(looking_at_id)
 		var label: String = n.get_meta("label") if n != null and is_instance_valid(n) else "?"
-		return '%s "%s" (punto colpito %s)' % [looking_at_id, label, World._v(looking_point)]
+		return '%s "%s" (hit point %s)' % [looking_at_id, label, World._v(looking_point)]
 	if has_point:
-		return "il terreno nel punto %s" % World._v(looking_point)
-	return "il cielo"
+		return "the ground at %s" % World._v(looking_point)
+	return "the sky"
 
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -14,39 +14,39 @@ func _ready() -> void:
 	World.reset_world()
 	await get_tree().create_timer(0.5).timeout
 	_out.append("team: " + team.names_list() + " lead=" + team.lead_name())
-	_t("spawn box", World.spawn_primitive({"shape": "box", "position": [0, 1, 0], "size": [2, 2, 2], "color": "#ff0000", "name": "cubo"}, "Architetto"))
-	_t("spawn torus", World.spawn_primitive({"shape": "torus", "position": [4, 1, 0], "size": [2, 0.4, 0], "physics": "rigid"}, "Decoratore"))
-	_t("modify", World.modify_object({"id": "obj_1", "color": "blue", "size": [3, 1, 3]}, "Architetto"))
-	_t("good script", World.run_script({"code": "extends Node3D\nfunc _ready():\n\tvar m := MeshInstance3D.new()\n\tm.mesh = SphereMesh.new()\n\tadd_child(m)\n\tprint('ciao dal test')\n", "position": [0, 3, -5], "name": "sfera"}, "Ingegnere"))
-	_t("parse error", World.run_script({"code": "extends Node3D\nfunc _ready(:\n\tpass\n", "position": [0, 0, 0], "name": "rotto"}, "Ingegnere"))
-	_t("forbidden", World.run_script({"code": "extends Node3D\nfunc _ready():\n\tOS.execute('ls', [])\n", "position": [0, 0, 0], "name": "cattivo"}, "Ingegnere"))
-	_t("attach", World.attach_script({"id": "obj_1", "code": "extends Node\n@onready var obj: Node3D = get_parent()\nfunc _process(d):\n\tobj.rotate_y(d)\n"}, "Ingegnere"))
-	_t("agents global", World.run_script({"code": "extends Node3D\nfunc _process(_d):\n\tif World.agents.has('Architetto'): look_at(World.agents['Architetto'].global_position)\n", "position": [3, 2, 3], "name": "occhio"}, "player"))
-	World.board["Architetto"] = "Piano: piazza centrale in (0,0,0)."
+	_t("spawn box", World.spawn_primitive({"shape": "box", "position": [0, 1, 0], "size": [2, 2, 2], "color": "#ff0000", "name": "cube"}, "Architect"))
+	_t("spawn torus", World.spawn_primitive({"shape": "torus", "position": [4, 1, 0], "size": [2, 0.4, 0], "physics": "rigid"}, "Decorator"))
+	_t("modify", World.modify_object({"id": "obj_1", "color": "blue", "size": [3, 1, 3]}, "Architect"))
+	_t("good script", World.run_script({"code": "extends Node3D\nfunc _ready():\n\tvar m := MeshInstance3D.new()\n\tm.mesh = SphereMesh.new()\n\tadd_child(m)\n\tprint('hello from the test')\n", "position": [0, 3, -5], "name": "sphere"}, "Engineer"))
+	_t("parse error", World.run_script({"code": "extends Node3D\nfunc _ready(:\n\tpass\n", "position": [0, 0, 0], "name": "broken"}, "Engineer"))
+	_t("forbidden", World.run_script({"code": "extends Node3D\nfunc _ready():\n\tOS.execute('ls', [])\n", "position": [0, 0, 0], "name": "nasty"}, "Engineer"))
+	_t("attach", World.attach_script({"id": "obj_1", "code": "extends Node\n@onready var obj: Node3D = get_parent()\nfunc _process(d):\n\tobj.rotate_y(d)\n"}, "Engineer"))
+	_t("agents global", World.run_script({"code": "extends Node3D\nfunc _process(_d):\n\tif World.agents.has('Architect'): look_at(World.agents['Architect'].global_position)\n", "position": [3, 2, 3], "name": "eye"}, "player"))
+	World.board["Architect"] = "Plan: central square at (0,0,0)."
 
-	_run_command("/nuovo Giardiniere: si occupa di alberi, fiori e parchi")
-	_run_command("/nuovo Giardiniere: doppione")
-	_out.append("team after /nuovo: " + team.names_list())
-	var g = team.find_brain("giardiniere")
+	_run_command("/new Gardener: takes care of trees, flowers and parks")
+	_run_command("/new Gardener: duplicate")
+	_out.append("team after /new: " + team.names_list())
+	var g = team.find_brain("gardener")
 	_out.append("custom prompt team section:\n" + team.describe_team(g))
 	_out.append("system prompt chars: %d, has placeholders left: %s" % [g.build_system_prompt().length(), "{NAME}" in g.build_system_prompt()])
 
 	# simulated agent-to-agent message routing
-	var arch = team.find_brain("Architetto")
-	arch._exec_tool("say", {"text": "Ingegnere, fai ruotare obj_1", "to": "Ingegnere"})
-	var ing = team.find_brain("Ingegnere")
-	_out.append("ingegnere pending: %s" % str(ing._pending))
-	_out.append("decoratore context: %s" % str(team.find_brain("Decoratore")._context))
-	_out.append("say to unknown: %s" % str(arch._exec_tool("say", {"text": "x", "to": "Nessuno"})))
+	var arch = team.find_brain("Architect")
+	arch._exec_tool("say", {"text": "Engineer, make obj_1 spin", "to": "Engineer"})
+	var ing = team.find_brain("Engineer")
+	_out.append("engineer pending: %s" % str(ing._pending))
+	_out.append("decorator context: %s" % str(team.find_brain("Decorator")._context))
+	_out.append("say to unknown: %s" % str(arch._exec_tool("say", {"text": "x", "to": "Nobody"})))
 
 	await get_tree().create_timer(1.0).timeout
-	_out.append("=== DESCRIBE (Decoratore) ===\n" + World.describe("Decoratore"))
+	_out.append("=== DESCRIBE (Decorator) ===\n" + World.describe("Decorator"))
 
 	# save / load round trip
 	var before := World.entities.size()
 	save_world("selftest", true)
 	World.reset_world()
-	_run_command("/rimuovi Giardiniere")
+	_run_command("/remove Gardener")
 	_out.append("after reset: %d objects, team %s" % [World.entities.size(), team.names_list()])
 	await get_tree().process_frame
 	load_world("selftest", true)

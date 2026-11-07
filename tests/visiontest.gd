@@ -14,13 +14,13 @@ func _ready() -> void:
 	team.autonomy = false
 	team.load_api_key()
 	World.chat_message.connect(func(a, t): _out.append("%s: %s" % [a, t]))
-	World.spawn_primitive({"shape": "box", "position": [0, 1, -4], "size": [2, 2, 2], "color": "#e63946", "name": "cubo"}, "player")
-	World.spawn_primitive({"shape": "sphere", "position": [3, 1, -4], "size": [2, 2, 2], "color": "#2a9d8f", "name": "palla"}, "player")
-	World.spawn_primitive({"shape": "cone", "position": [-3, 1.5, -4], "size": [2, 3, 2], "color": "#f4a261", "name": "cono"}, "player")
+	World.spawn_primitive({"shape": "box", "position": [0, 1, -4], "size": [2, 2, 2], "color": "#e63946", "name": "cube"}, "player")
+	World.spawn_primitive({"shape": "sphere", "position": [3, 1, -4], "size": [2, 2, 2], "color": "#2a9d8f", "name": "ball"}, "player")
+	World.spawn_primitive({"shape": "cone", "position": [-3, 1.5, -4], "size": [2, 3, 2], "color": "#f4a261", "name": "cone"}, "player")
 	await get_tree().create_timer(1.0).timeout
 	var img: Image = await team.photographer.capture(Vector3(0, 4, 4), Vector3(0, 1, -4))
 	img.save_jpg(ProjectSettings.globalize_path("res://tests/visiontest_photo.jpg"))
-	team.find_brain("Architetto").queue_event("[Test tecnico] Il giocatore ha messo tre oggetti davanti a sé. Senza leggerne i nomi, fai una foto con take_photo (look_at [0,1,-4], position [0,4,4]) e descrivi con say forme e colori che vedi, da sinistra a destra.")
+	team.find_brain("Architect").queue_event("[Technical test] The player put three objects in front of them. Without reading their names, take a photo with take_photo (look_at [0,1,-4], position [0,4,4]) and describe with say the shapes and colors you see, from left to right.")
 	await get_tree().create_timer(40.0).timeout
 	var f := FileAccess.open("res://tests/visiontest_output.txt", FileAccess.WRITE)
 	f.store_string("\n".join(_out))

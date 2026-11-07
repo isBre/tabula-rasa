@@ -55,7 +55,7 @@ func run(points: Array, color: Color) -> Dictionary:
 		var flat := Vector3(to.x, 0, to.z)
 		if flat.length() < 0.5 and absf(to.y) < 1.6:
 			if idx == points.size() - 1:
-				outcome = "arrivato"
+				outcome = "arrived"
 				break
 			idx += 1
 			best_dist = INF
@@ -85,23 +85,23 @@ func run(points: Array, color: Color) -> Dictionary:
 			best_dist = d
 			last_progress_t = t
 		elif t - last_progress_t > STUCK_SECONDS:
-			outcome = "bloccato"
+			outcome = "stuck"
 			break
 		if walker.global_position.y < -10.0:
-			outcome = "caduto nel vuoto"
+			outcome = "fell into the void"
 			break
 		if steps % STEPS_PER_FRAME == 0:
 			await get_tree().process_frame
 	if outcome == "":
-		outcome = "tempo scaduto"
+		outcome = "timed out"
 
 	var pos := walker.global_position
 	var report := {"outcome": outcome, "seconds": snappedf(t, 0.1), "jumps": jumps, "position": pos, "max_drop": max_drop, "waypoint": idx}
-	if outcome == "bloccato":
+	if outcome == "stuck":
 		report["obstacle"] = _describe_obstacle(walker, (Vector3(points[idx].x, pos.y, points[idx].z) - pos).normalized())
 	trail.append(pos)
 	walker.queue_free()
-	_draw_trail(trail, color, outcome == "arrivato")
+	_draw_trail(trail, color, outcome == "arrived")
 	_busy = false
 	return report
 
@@ -114,15 +114,15 @@ func _describe_obstacle(walker: CharacterBody3D, dir: Vector3) -> String:
 	q.exclude = [walker.get_rid()]
 	var hit := space.intersect_ray(q)
 	if hit.is_empty():
-		return "nessun ostacolo davanti (forse un buco, un dislivello o un passaggio troppo stretto)"
-	parts.append("davanti c'è " + _id_of(hit.collider))
+		return "no obstacle ahead (maybe a hole, a drop or a passage too narrow)"
+	parts.append("ahead there is " + _id_of(hit.collider))
 	var probe: Vector3 = hit.position + dir * 0.2
 	var q2 := PhysicsRayQueryParameters3D.create(probe + Vector3.UP * 20.0, probe - Vector3.UP * 1.0)
 	q2.exclude = [walker.get_rid()]
 	var top := space.intersect_ray(q2)
 	if not top.is_empty():
 		var h: float = top.position.y - base.y
-		parts.append("alto circa %.2f m rispetto ai piedi (il salto massimo è circa 1.2 m)" % h)
+		parts.append("about %.2f m high above the feet (the highest jump is about 1.2 m)" % h)
 	return ", ".join(parts)
 
 
@@ -132,7 +132,7 @@ func _id_of(collider) -> String:
 		n = n.get_parent()
 	if n != null and n is Node:
 		return '%s "%s"' % [n.get_meta("id"), n.get_meta("label")]
-	return "il terreno o un oggetto senza id"
+	return "the ground or an object without id"
 
 
 func _draw_trail(points: Array, color: Color, success: bool) -> void:

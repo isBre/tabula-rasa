@@ -13,23 +13,23 @@ func _ready() -> void:
 	team.autonomy = false
 	player.set_process_unhandled_input(false)
 	await get_tree().create_timer(0.3).timeout
-	var arch = team.find_brain("Architetto")
-	_out.append("Architetto models: default=%s, player=%s" % [arch.model, arch.model_for_player])
+	var arch = team.find_brain("Architect")
+	_out.append("Architect models: default=%s, player=%s" % [arch.model, arch.model_for_player])
 	# model routing (fake key: the request fails, we only look at the chosen model)
 	team.api_key = "test"
-	arch.queue_event("[Ingegnere ti dice]: ho finito la porta")
+	arch.queue_event("[Engineer tells you]: I finished the door")
 	_out.append("teammate turn -> %s" % arch.current_model)
 	arch.reset_all()
-	arch.queue_event("[Il giocatore ti dice]: facciamo un castello")
+	arch.queue_event("[The player tells you]: let's build a castle")
 	_out.append("player turn -> %s" % arch.current_model)
 	arch.reset_all()
 	team.api_key = ""
 
-	World.spawn_asset({"asset": "kaykit_medieval/building_tavern_red", "position": [0, 0, -6], "height": 5}, "Architetto")
-	World.board["Architetto"] = "piano: taverna"
-	arch.messages = [{"role": "user", "content": [{"type": "text", "text": "ciao"}]}]
+	World.spawn_asset({"asset": "kaykit_medieval/building_tavern_red", "position": [0, 0, -6], "height": 5}, "Architect")
+	World.board["Architect"] = "plan: tavern"
+	arch.messages = [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
 	arch.busy = true
-	history.commit("Architetto", "taverna")
+	history.commit("Architect", "tavern")
 	_out.append("before: %d objects, board %s, arch messages %d, busy %s, history %d" % [World.entities.size(), str(World.board), arch.messages.size(), arch.busy, history.commits.size()])
 	ui.menu.open()
 	ui.menu._confirm.popup_centered()

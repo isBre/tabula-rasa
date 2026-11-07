@@ -8,33 +8,34 @@ extends Node
 ## The shared palette: res://palette.json (all worlds), extended by the agents with add_color.
 ## These are the built-in entries, used if the file is missing.
 const PALETTE_FILE := "res://palette.json"
+const Legacy := preload("res://scripts/legacy.gd")
 const DEFAULT_PALETTE := {
-	"pietra": {"color": "#8d9096", "rough": 0.95},
-	"roccia": {"color": "#7a7570", "rough": 1.0},
-	"mattoni": {"color": "#b4583e", "rough": 0.9},
-	"intonaco": {"color": "#e9dcc3", "rough": 0.9},
-	"legno": {"color": "#8b5a2b", "rough": 0.85},
-	"legno_chiaro": {"color": "#c19a6b", "rough": 0.85},
-	"tetto": {"color": "#a8432f", "rough": 0.8},
-	"tegole_blu": {"color": "#3d5a80", "rough": 0.8},
-	"erba": {"color": "#6ab04c", "rough": 1.0},
-	"foglie": {"color": "#4c9a2a", "rough": 1.0},
-	"foglie_scure": {"color": "#2d6a4f", "rough": 1.0},
-	"foglie_chiare": {"color": "#95c95f", "rough": 1.0},
-	"foglie_autunno": {"color": "#e07a3f", "rough": 1.0},
-	"terra": {"color": "#8d6e4a", "rough": 1.0},
-	"sabbia": {"color": "#e3c88f", "rough": 1.0},
-	"neve": {"color": "#f2f5f7", "rough": 0.9},
-	"acqua": {"color": "#3fa7d6c8", "rough": 0.1, "metal": 0.1},
-	"vetro": {"color": "#bfe6ff66", "rough": 0.05},
-	"metallo": {"color": "#a7b0b8", "rough": 0.45, "metal": 0.35},
-	"ferro_scuro": {"color": "#4a4f55", "rough": 0.55, "metal": 0.3},
-	"oro": {"color": "#e8c04f", "rough": 0.4, "metal": 0.4},
-	"tessuto_rosso": {"color": "#c0392b", "rough": 1.0},
-	"corteccia_betulla": {"color": "#e8e4da", "rough": 0.9},
+	"stone": {"color": "#8d9096", "rough": 0.95},
+	"rock": {"color": "#7a7570", "rough": 1.0},
+	"brick": {"color": "#b4583e", "rough": 0.9},
+	"plaster": {"color": "#e9dcc3", "rough": 0.9},
+	"wood": {"color": "#8b5a2b", "rough": 0.85},
+	"light_wood": {"color": "#c19a6b", "rough": 0.85},
+	"roof_tiles": {"color": "#a8432f", "rough": 0.8},
+	"blue_slate": {"color": "#3d5a80", "rough": 0.8},
+	"grass": {"color": "#6ab04c", "rough": 1.0},
+	"leaves": {"color": "#4c9a2a", "rough": 1.0},
+	"dark_leaves": {"color": "#2d6a4f", "rough": 1.0},
+	"light_leaves": {"color": "#95c95f", "rough": 1.0},
+	"autumn_leaves": {"color": "#e07a3f", "rough": 1.0},
+	"dirt": {"color": "#8d6e4a", "rough": 1.0},
+	"sand": {"color": "#e3c88f", "rough": 1.0},
+	"snow": {"color": "#f2f5f7", "rough": 0.9},
+	"water": {"color": "#3fa7d6c8", "rough": 0.1, "metal": 0.1},
+	"glass": {"color": "#bfe6ff66", "rough": 0.05},
+	"metal": {"color": "#a7b0b8", "rough": 0.45, "metal": 0.35},
+	"dark_iron": {"color": "#4a4f55", "rough": 0.55, "metal": 0.3},
+	"gold": {"color": "#e8c04f", "rough": 0.4, "metal": 0.4},
+	"red_fabric": {"color": "#c0392b", "rough": 1.0},
+	"birch_bark": {"color": "#e8e4da", "rough": 0.9},
 	"lava": {"color": "#ff6a1a", "rough": 0.6, "glow": 3.0},
 	"neon": {"color": "#4fd1ff", "rough": 0.4, "glow": 2.5},
-	"luce_calda": {"color": "#ffd27a", "rough": 0.5, "glow": 2.0},
+	"warm_light": {"color": "#ffd27a", "rough": 0.5, "glow": 2.0},
 }
 const NEAR_DUPLICATE := 0.07   # colors closer than this (RGB distance) count as the same
 var PALETTE := {}   # name -> {color, rough, metal?, glow?, group, description}
@@ -75,18 +76,18 @@ func nearest(c: Color) -> Array:
 func add_color(raw_name: String, hex: String, group: String, description: String, rough := 0.85, metal := 0.0, glow := 0.0, force := false) -> Dictionary:
 	var n := raw_name.strip_edges().to_lower().replace(" ", "_")
 	if not RegEx.create_from_string("^[a-z][a-z0-9_]{1,30}$").search(n):
-		return {"ok": false, "text": "Nome non valido: lettere minuscole, numeri e _ (es. legno_noce)."}
+		return {"ok": false, "text": "Invalid name: lowercase letters, numbers and _ (e.g. walnut_wood)."}
 	if PALETTE.has(n):
-		return {"ok": false, "text": "'%s' esiste già nella palette (%s)." % [n, PALETTE[n].color]}
+		return {"ok": false, "text": "'%s' is already in the palette (%s)." % [n, PALETTE[n].color]}
 	if not Color.html_is_valid(hex):
-		return {"ok": false, "text": "Colore non valido: usa #rrggbb."}
+		return {"ok": false, "text": "Invalid color: use #rrggbb."}
 	if description.strip_edges() == "":
-		return {"ok": false, "text": "Serve una descrizione breve: a cosa serve questo colore."}
+		return {"ok": false, "text": "A short description is needed: what this color is for."}
 	var c := Color(hex)
 	var near := nearest(c)
 	if near[1] < NEAR_DUPLICATE and not force:
-		return {"ok": false, "text": "Quasi uguale a '%s' (%s): usa quello. Se serve davvero un colore distinto, riprova con force=true." % [near[0], PALETTE[near[0]].color]}
-	var e := {"color": "#" + c.to_html(c.a < 0.999), "group": group.strip_edges() if group.strip_edges() != "" else "altro", "description": description.strip_edges().left(120), "rough": clampf(rough, 0.0, 1.0)}
+		return {"ok": false, "text": "Almost the same as '%s' (%s): use that one. If you really need a distinct color, try again with force=true." % [near[0], PALETTE[near[0]].color]}
+	var e := {"color": "#" + c.to_html(c.a < 0.999), "group": group.strip_edges() if group.strip_edges() != "" else "other", "description": description.strip_edges().left(120), "rough": clampf(rough, 0.0, 1.0)}
 	if metal > 0.0:
 		e["metal"] = clampf(metal, 0.0, 1.0)
 	if glow > 0.0:
@@ -102,18 +103,18 @@ func add_color(raw_name: String, hex: String, group: String, description: String
 	if f:
 		f.store_string(JSON.stringify(data, "\t"))
 		f.close()
-	return {"ok": true, "text": "Aggiunto '%s' (%s) alla palette, gruppo %s. Usalo come \"mat\": \"%s\"." % [n, e.color, e.group, n]}
+	return {"ok": true, "text": "Added '%s' (%s) to the palette, group %s. Use it as \"mat\": \"%s\"." % [n, e.color, e.group, n]}
 
 
 ## The palette by group, for the agents' prompt.
 func palette_text() -> String:
 	var groups := {}
 	for n in PALETTE:
-		var g := str(PALETTE[n].get("group", "altro"))
+		var g := str(PALETTE[n].get("group", "other"))
 		if not groups.has(g):
 			groups[g] = []
 		var e: Dictionary = PALETTE[n]
-		var extra := " (luminoso)" if e.has("glow") else ""
+		var extra := " (glowing)" if e.has("glow") else ""
 		var desc := str(e.get("description", ""))
 		groups[g].append("%s %s%s%s" % [n, e.color, extra, (": " + desc) if desc != "" else ""])
 	var lines := PackedStringArray()
@@ -126,9 +127,11 @@ func palette_text() -> String:
 
 ## Low-poly material from the palette (or any color). Materials are cached and
 ## shared: call .duplicate() before changing one.
-func material(kind: Variant = "pietra", tint: Variant = null) -> Material:
+func material(kind: Variant = "stone", tint: Variant = null) -> Material:
 	if kind is Material:
 		return kind
+	if kind is String:
+		kind = Legacy.palette(kind)   # old Italian names in older scripts
 	var preset: Dictionary = {}
 	var col := Color(0.8, 0.8, 0.8)
 	var vertex := false
@@ -247,7 +250,7 @@ func _edge_out(poly: PackedVector2Array, p0: Vector2, p1: Vector2) -> Vector2:
 
 # ================================================================ basic solids
 
-func box(size: Vector3 = Vector3.ONE, mat: Variant = "pietra", solid := true) -> Node3D:
+func box(size: Vector3 = Vector3.ONE, mat: Variant = "stone", solid := true) -> Node3D:
 	var h := size * 0.5
 	var c := [
 		Vector3(-h.x, 0, -h.z), Vector3(h.x, 0, -h.z), Vector3(h.x, 0, h.z), Vector3(-h.x, 0, h.z),
@@ -265,7 +268,7 @@ func box(size: Vector3 = Vector3.ONE, mat: Variant = "pietra", solid := true) ->
 
 ## Revolves a profile [Vector2(radius, y), ...] (bottom to top) around the Y axis.
 ## Start and end with radius 0 to close the bottom and the top.
-func lathe(profile: Array, sides := 10, mat: Variant = "pietra", solid := true, jitter := 0.0, random_seed := 0, scale := Vector3.ONE) -> Node3D:
+func lathe(profile: Array, sides := 10, mat: Variant = "stone", solid := true, jitter := 0.0, random_seed := 0, scale := Vector3.ONE) -> Node3D:
 	var prof: Array = profile.map(func(p): return _v2(p))
 	sides = clampi(sides, 3, 64)
 	var rng := RandomNumberGenerator.new()
@@ -294,11 +297,11 @@ func lathe(profile: Array, sides := 10, mat: Variant = "pietra", solid := true, 
 	return _finish(b.commit(), mat, solid)
 
 
-func cylinder(radius := 0.5, height := 1.0, sides := 8, mat: Variant = "pietra", solid := true) -> Node3D:
+func cylinder(radius := 0.5, height := 1.0, sides := 8, mat: Variant = "stone", solid := true) -> Node3D:
 	return lathe([Vector2(0, 0), Vector2(radius, 0), Vector2(radius, height), Vector2(0, height)], sides, mat, solid)
 
 
-func cone(radius := 0.5, height := 1.0, sides := 8, mat: Variant = "pietra", solid := true) -> Node3D:
+func cone(radius := 0.5, height := 1.0, sides := 8, mat: Variant = "stone", solid := true) -> Node3D:
 	return lathe([Vector2(0, 0), Vector2(radius, 0), Vector2(0, height)], sides, mat, solid)
 
 
@@ -311,19 +314,19 @@ func _sphere_profile(radius: float, rings: int) -> Array:
 
 
 ## Low-poly sphere resting on y=0. detail 2..6.
-func sphere(radius := 0.5, detail := 3, mat: Variant = "pietra", solid := true) -> Node3D:
+func sphere(radius := 0.5, detail := 3, mat: Variant = "stone", solid := true) -> Node3D:
 	var rings := clampi(detail, 2, 8) + 2
 	return lathe(_sphere_profile(radius, rings), rings * 2, mat, solid)
 
 
 ## Irregular low-poly rock of roughly `size`.
-func rock(size: Variant = Vector3(1, 0.8, 1), random_seed := 0, roughness := 0.25, mat: Variant = "roccia", solid := true) -> Node3D:
+func rock(size: Variant = Vector3(1, 0.8, 1), random_seed := 0, roughness := 0.25, mat: Variant = "rock", solid := true) -> Node3D:
 	var s: Vector3 = size if size is Vector3 else (Vector3.ONE * float(size))
 	return lathe(_sphere_profile(0.5, 5), 7, mat, solid, roughness * 0.5, random_seed, s)
 
 
 ## Bushy blob of foliage.
-func bush(size := 1.0, random_seed := 0, mat: Variant = "foglie") -> Node3D:
+func bush(size := 1.0, random_seed := 0, mat: Variant = "leaves") -> Node3D:
 	return lathe(_sphere_profile(0.5, 4), 7, mat, false, 0.12, random_seed, Vector3(size, size * 0.75, size))
 
 
@@ -331,13 +334,13 @@ func bush(size := 1.0, random_seed := 0, mat: Variant = "foglie") -> Node3D:
 
 ## Extrudes a polygon. axis "y": polygon is a footprint [Vector2(x, z)...] raised from y=0 to depth.
 ## axis "z": polygon is a front profile [Vector2(x, y)...] extruded along Z, centered on z=0.
-func extrude(polygon: Array, depth := 1.0, mat: Variant = "pietra", solid := true, axis := "y") -> Node3D:
+func extrude(polygon: Array, depth := 1.0, mat: Variant = "stone", solid := true, axis := "y") -> Node3D:
 	var poly := PackedVector2Array()
 	for p in polygon:
 		poly.append(_v2(p))
 	var idx := Geometry2D.triangulate_polygon(poly)
 	if idx.is_empty():
-		push_error("Shapes.extrude: poligono non valido (lati che si incrociano o meno di 3 punti)")
+		push_error("Shapes.extrude: invalid polygon (crossing edges or fewer than 3 points)")
 		return Node3D.new()
 	var on_y := axis != "z"
 	var h0 := 0.0 if on_y else -depth * 0.5
@@ -362,13 +365,13 @@ func extrude(polygon: Array, depth := 1.0, mat: Variant = "pietra", solid := tru
 
 ## Drags a closed 2D profile [Vector2(side, up)...] along a path [Vector3...].
 ## The profile stays upright (good for roads, rails, walls following a curve).
-func sweep(profile: Array, path: Array, mat: Variant = "pietra", solid := true) -> Node3D:
+func sweep(profile: Array, path: Array, mat: Variant = "stone", solid := true) -> Node3D:
 	var prof := PackedVector2Array()
 	for p in profile:
 		prof.append(_v2(p))
 	var pts: Array = path.map(func(p): return _v3(p))
 	if pts.size() < 2 or prof.size() < 2:
-		push_error("Shapes.sweep: servono almeno 2 punti nel percorso e 2 nel profilo")
+		push_error("Shapes.sweep: at least 2 points in the path and 2 in the profile are needed")
 		return Node3D.new()
 	var frames: Array = []
 	for k in pts.size():
@@ -401,7 +404,7 @@ func sweep(profile: Array, path: Array, mat: Variant = "pietra", solid := true) 
 	return _finish(b.commit(), mat, solid)
 
 
-func tube(path: Array, radius := 0.1, sides := 6, mat: Variant = "metallo", solid := true) -> Node3D:
+func tube(path: Array, radius := 0.1, sides := 6, mat: Variant = "metal", solid := true) -> Node3D:
 	var prof: Array = []
 	for j in sides:
 		var a := TAU * j / sides
@@ -410,7 +413,7 @@ func tube(path: Array, radius := 0.1, sides := 6, mat: Variant = "metallo", soli
 
 
 ## Flat strip following a path on the ground: roads, paths, rivers.
-func ribbon(path: Array, width := 3.0, thickness := 0.1, mat: Variant = "pietra", solid := true) -> Node3D:
+func ribbon(path: Array, width := 3.0, thickness := 0.1, mat: Variant = "stone", solid := true) -> Node3D:
 	var w := width * 0.5
 	return sweep([Vector2(-w, 0), Vector2(w, 0), Vector2(w, thickness), Vector2(-w, thickness)], path, mat, solid)
 
@@ -419,7 +422,7 @@ func ribbon(path: Array, width := 3.0, thickness := 0.1, mat: Variant = "pietra"
 
 ## Wall along X (thickness along Z) with rectangular openings:
 ## openings = [{"x": center offset, "y": bottom height, "w": width, "h": height}, ...]
-func wall(width := 4.0, height := 3.0, thickness := 0.25, openings: Array = [], mat: Variant = "intonaco", solid := true) -> Node3D:
+func wall(width := 4.0, height := 3.0, thickness := 0.25, openings: Array = [], mat: Variant = "plaster", solid := true) -> Node3D:
 	var root := Node3D.new()
 	var csg := CSGBox3D.new()
 	csg.size = Vector3(width, height, thickness)
@@ -441,7 +444,7 @@ func wall(width := 4.0, height := 3.0, thickness := 0.25, openings: Array = [], 
 
 
 ## Round arch facing Z: outer width, total height, side thickness, depth along Z.
-func arch(width := 3.0, height := 3.5, thickness := 0.5, depth := 0.6, mat: Variant = "pietra", segments := 10, solid := true) -> Node3D:
+func arch(width := 3.0, height := 3.5, thickness := 0.5, depth := 0.6, mat: Variant = "stone", segments := 10, solid := true) -> Node3D:
 	var r_out := width * 0.5
 	var r_in: float = max(r_out - thickness, 0.05)
 	var spring: float = max(height - r_out, 0.0)
@@ -460,7 +463,7 @@ func arch(width := 3.0, height := 3.5, thickness := 0.5, depth := 0.6, mat: Vari
 
 ## Roof whose base (at y=0) covers width (X) x depth (Z) plus overhang.
 ## kind: "gable" (ridge along Z), "hip", "pyramid", "shed", "flat".
-func roof(kind := "gable", width := 6.0, depth := 6.0, height := 2.0, overhang := 0.3, mat: Variant = "tetto", solid := true) -> Node3D:
+func roof(kind := "gable", width := 6.0, depth := 6.0, height := 2.0, overhang := 0.3, mat: Variant = "roof_tiles", solid := true) -> Node3D:
 	var W := width + overhang * 2.0
 	var D := depth + overhang * 2.0
 	match kind:
@@ -500,7 +503,7 @@ func roof(kind := "gable", width := 6.0, depth := 6.0, height := 2.0, overhang :
 
 
 ## Solid staircase climbing toward -Z from z=0. steps=0 picks ~0.2 m risers.
-func stairs(width := 2.0, height := 2.0, depth := 3.0, steps := 0, mat: Variant = "pietra", solid := true) -> Node3D:
+func stairs(width := 2.0, height := 2.0, depth := 3.0, steps := 0, mat: Variant = "stone", solid := true) -> Node3D:
 	if steps <= 0:
 		steps = maxi(1, roundi(height / 0.2))
 	var root: Node3D = StaticBody3D.new() if solid else Node3D.new()
@@ -533,7 +536,7 @@ func stairs(width := 2.0, height := 2.0, depth := 3.0, steps := 0, mat: Variant 
 
 
 ## Wooden fence along a path: posts every `spacing` meters and two rails.
-func fence(path: Array, height := 1.0, spacing := 2.0, mat: Variant = "legno", solid := true) -> Node3D:
+func fence(path: Array, height := 1.0, spacing := 2.0, mat: Variant = "wood", solid := true) -> Node3D:
 	var pts: Array = path.map(func(p): return _v3(p))
 	var root := Node3D.new()
 	var posts: Array = []
@@ -561,7 +564,7 @@ func tree(kind := "round", height := 4.0, random_seed := 0, solid := true) -> No
 	rng.seed = random_seed
 	height *= rng.randf_range(0.9, 1.1)
 	var root := Node3D.new()
-	var trunk_mat := "corteccia_betulla" if kind == "birch" else "legno"
+	var trunk_mat := "birch_bark" if kind == "birch" else "wood"
 	var trunk_h := height * (0.35 if kind == "pine" else 0.55)
 	var r := height * (0.035 if kind == "birch" else 0.055)
 	root.add_child(lathe([Vector2(0, 0), Vector2(r, 0), Vector2(r * 0.7, trunk_h), Vector2(0, trunk_h)], 6, trunk_mat, solid))
@@ -571,12 +574,12 @@ func tree(kind := "round", height := 4.0, random_seed := 0, solid := true) -> No
 			for i in levels:
 				var base_y := trunk_h * 0.6 + i * height * 0.2
 				var cr := height * (0.3 - i * 0.07)
-				var c := cone(cr, height * 0.38, 7, "foglie_scure", false)
+				var c := cone(cr, height * 0.38, 7, "dark_leaves", false)
 				c.position.y = base_y
 				c.rotation.y = rng.randf() * TAU
 				root.add_child(c)
 		_:
-			var leaf: String = "foglie_autunno" if kind == "autumn" else ("foglie_chiare" if kind == "birch" else ["foglie", "foglie_scure", "foglie_chiare"][rng.randi() % 3])
+			var leaf: String = "autumn_leaves" if kind == "autumn" else ("light_leaves" if kind == "birch" else ["leaves", "dark_leaves", "light_leaves"][rng.randi() % 3])
 			var blobs := 3 if kind != "birch" else 2
 			var size := height * (0.5 if kind != "birch" else 0.38)
 			for i in blobs:
@@ -626,7 +629,7 @@ func _height_color(y: float, max_h: float) -> Color:
 
 
 ## Flat water surface (not solid), size_x by size_z, slightly above y=0.
-func water(size_x := 10.0, size_z := 10.0, mat: Variant = "acqua") -> Node3D:
+func water(size_x := 10.0, size_z := 10.0, mat: Variant = "water") -> Node3D:
 	var mi := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(size_x, size_z)
@@ -639,7 +642,7 @@ func water(size_x := 10.0, size_z := 10.0, mat: Variant = "acqua") -> Node3D:
 # ================================================================ misc
 
 ## 3D text standing on y=0, facing +Z. size = letter height in meters.
-func text(content := "Ciao", size := 1.0, depth := 0.1, mat: Variant = "intonaco") -> Node3D:
+func text(content := "Hello", size := 1.0, depth := 0.1, mat: Variant = "plaster") -> Node3D:
 	var tm := TextMesh.new()
 	tm.text = content
 	tm.font_size = 64

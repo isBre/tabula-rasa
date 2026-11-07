@@ -14,7 +14,7 @@ func _log_error(_function: String, file: String, line: int, code: String, ration
 	var msg := rationale if rationale != "" else code
 	var where := ""
 	if file.begins_with(LIVE_PREFIX):
-		where = " [%s riga %d]" % [file.get_file().get_basename(), line]
+		where = " [%s line %d]" % [file.get_file().get_basename(), line]
 	else:
 		for bt in script_backtraces:
 			if bt == null:
@@ -22,11 +22,11 @@ func _log_error(_function: String, file: String, line: int, code: String, ration
 			for i in bt.get_frame_count():
 				var f := bt.get_frame_file(i)
 				if f.begins_with(LIVE_PREFIX):
-					where = " [%s riga %d]" % [f.get_file().get_basename(), bt.get_frame_line(i)]
+					where = " [%s line %d]" % [f.get_file().get_basename(), bt.get_frame_line(i)]
 					break
 			if where != "":
 				break
-	_push("ERRORE: " + msg.strip_edges() + where)
+	_push("ERROR: " + msg.strip_edges() + where)
 
 
 func _log_message(message: String, error: bool) -> void:

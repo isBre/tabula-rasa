@@ -1,209 +1,209 @@
 {
-	"_info": "Palette condivisa della squadra (tutti i mondi). Gli agenti la estendono con add_color; si può modificare anche a mano.",
+	"_info": "The team's shared palette (all worlds). The agents extend it with add_color; you can also edit it by hand.",
 	"colors": {
-		"pietra": {
+		"stone": {
 			"color": "#8d9096",
-			"group": "pietra e muratura",
-			"description": "pietra grigia: basamenti, pavimenti esterni, muri antichi",
+			"group": "stone and masonry",
+			"description": "gray stone: bases, outdoor floors, old walls",
 			"rough": 0.95
 		},
-		"roccia": {
+		"rock": {
 			"color": "#7a7570",
-			"group": "pietra e muratura",
-			"description": "roccia naturale grigio-bruna",
+			"group": "stone and masonry",
+			"description": "natural gray-brown rock",
 			"rough": 1.0
 		},
-		"mattoni": {
+		"brick": {
 			"color": "#b4583e",
-			"group": "pietra e muratura",
-			"description": "mattone rosso: muri, camini",
+			"group": "stone and masonry",
+			"description": "red brick: walls, chimneys",
 			"rough": 0.9
 		},
-		"intonaco": {
+		"plaster": {
 			"color": "#e9dcc3",
-			"group": "pietra e muratura",
-			"description": "intonaco chiaro caldo: muri delle case",
+			"group": "stone and masonry",
+			"description": "warm light plaster: house walls",
 			"rough": 0.9
 		},
-		"tetto": {
+		"roof_tiles": {
 			"color": "#a8432f",
-			"group": "pietra e muratura",
-			"description": "tegole in cotto",
+			"group": "stone and masonry",
+			"description": "terracotta roof tiles",
 			"rough": 0.8
 		},
-		"tegole_blu": {
+		"blue_slate": {
 			"color": "#3d5a80",
-			"group": "pietra e muratura",
-			"description": "tegole blu ardesia",
+			"group": "stone and masonry",
+			"description": "blue slate tiles",
 			"rough": 0.8
 		},
-		"legno": {
+		"wood": {
 			"color": "#8b5a2b",
-			"group": "legni",
-			"description": "legno medio: mobili, travi, porte",
+			"group": "woods",
+			"description": "medium wood: furniture, beams, doors",
 			"rough": 0.85
 		},
-		"legno_chiaro": {
+		"light_wood": {
 			"color": "#c19a6b",
-			"group": "legni",
-			"description": "legno chiaro: pavimenti, piani, sedute",
+			"group": "woods",
+			"description": "light wood: floors, tops, seats",
 			"rough": 0.85
 		},
-		"corteccia_betulla": {
+		"birch_bark": {
 			"color": "#e8e4da",
-			"group": "legni",
-			"description": "corteccia bianca di betulla",
+			"group": "woods",
+			"description": "white birch bark",
 			"rough": 0.9
 		},
-		"erba": {
+		"grass": {
 			"color": "#6ab04c",
-			"group": "natura",
-			"description": "prato",
+			"group": "nature",
+			"description": "meadow",
 			"rough": 1.0
 		},
-		"foglie": {
+		"leaves": {
 			"color": "#4c9a2a",
-			"group": "natura",
-			"description": "chiome verdi",
+			"group": "nature",
+			"description": "green tree crowns",
 			"rough": 1.0
 		},
-		"foglie_scure": {
+		"dark_leaves": {
 			"color": "#2d6a4f",
-			"group": "natura",
-			"description": "conifere, siepi",
+			"group": "nature",
+			"description": "conifers, hedges",
 			"rough": 1.0
 		},
-		"foglie_chiare": {
+		"light_leaves": {
 			"color": "#95c95f",
-			"group": "natura",
-			"description": "germogli, cespugli giovani",
+			"group": "nature",
+			"description": "sprouts, young bushes",
 			"rough": 1.0
 		},
-		"foglie_autunno": {
+		"autumn_leaves": {
 			"color": "#e07a3f",
-			"group": "natura",
-			"description": "foglie arancioni d'autunno",
+			"group": "nature",
+			"description": "orange autumn leaves",
 			"rough": 1.0
 		},
-		"terra": {
+		"dirt": {
 			"color": "#8d6e4a",
-			"group": "natura",
-			"description": "terra battuta, sentieri",
+			"group": "nature",
+			"description": "packed dirt, trails",
 			"rough": 1.0
 		},
-		"sabbia": {
+		"sand": {
 			"color": "#e3c88f",
-			"group": "natura",
-			"description": "sabbia, spiagge",
+			"group": "nature",
+			"description": "sand, beaches",
 			"rough": 1.0
 		},
-		"neve": {
+		"snow": {
 			"color": "#f2f5f7",
-			"group": "natura",
-			"description": "neve",
+			"group": "nature",
+			"description": "snow",
 			"rough": 0.9
 		},
-		"acqua": {
+		"water": {
 			"color": "#3fa7d6c8",
-			"group": "acqua e vetro",
-			"description": "acqua trasparente",
+			"group": "water and glass",
+			"description": "transparent water",
 			"rough": 0.1,
 			"metal": 0.1
 		},
-		"vetro": {
+		"glass": {
 			"color": "#bfe6ff66",
-			"group": "acqua e vetro",
-			"description": "vetro di finestre e vetrine",
+			"group": "water and glass",
+			"description": "glass for windows and shop windows",
 			"rough": 0.05
 		},
-		"metallo": {
+		"metal": {
 			"color": "#a7b0b8",
-			"group": "metalli",
-			"description": "acciaio, cromature, maniglie",
+			"group": "metals",
+			"description": "steel, chrome, handles",
 			"rough": 0.45,
 			"metal": 0.35
 		},
-		"ferro_scuro": {
+		"dark_iron": {
 			"color": "#4a4f55",
-			"group": "metalli",
-			"description": "ferro battuto, lampioni, cardini",
+			"group": "metals",
+			"description": "wrought iron, streetlights, hinges",
 			"rough": 0.55,
 			"metal": 0.3
 		},
-		"oro": {
+		"gold": {
 			"color": "#e8c04f",
-			"group": "metalli",
-			"description": "oro, ottone, decorazioni",
+			"group": "metals",
+			"description": "gold, brass, decorations",
 			"rough": 0.4,
 			"metal": 0.4
 		},
-		"rame": {
+		"copper": {
 			"color": "#c27a4a",
-			"group": "metalli",
-			"description": "rame: pentole, tubi, grondaie",
+			"group": "metals",
+			"description": "copper: pots, pipes, gutters",
 			"rough": 0.45,
 			"metal": 0.4
 		},
-		"tessuto_rosso": {
+		"red_fabric": {
 			"color": "#c0392b",
-			"group": "tessuti e superfici",
-			"description": "stoffa rossa: tende, cuscini, tappeti",
+			"group": "fabrics and surfaces",
+			"description": "red cloth: curtains, cushions, rugs",
 			"rough": 1.0
 		},
-		"tessuto_blu": {
+		"blue_fabric": {
 			"color": "#3f6fb5",
-			"group": "tessuti e superfici",
-			"description": "stoffa blu: divani, cuscini",
+			"group": "fabrics and surfaces",
+			"description": "blue cloth: sofas, cushions",
 			"rough": 1.0
 		},
-		"tessuto_verde": {
+		"green_fabric": {
 			"color": "#5f8f5a",
-			"group": "tessuti e superfici",
-			"description": "stoffa verde: poltrone, tende",
+			"group": "fabrics and surfaces",
+			"description": "green cloth: armchairs, curtains",
 			"rough": 1.0
 		},
-		"crema": {
+		"cream": {
 			"color": "#efe2c0",
-			"group": "tessuti e superfici",
-			"description": "crema: elettrodomestici retrò, tessuti chiari",
+			"group": "fabrics and surfaces",
+			"description": "cream: retro appliances, light fabrics",
 			"rough": 0.7
 		},
-		"bianco_caldo": {
+		"warm_white": {
 			"color": "#f2ede4",
-			"group": "tessuti e superfici",
-			"description": "bianco caldo: lenzuola, elettrodomestici, muri interni",
+			"group": "fabrics and surfaces",
+			"description": "warm white: sheets, appliances, inner walls",
 			"rough": 0.7
 		},
-		"ceramica": {
+		"ceramic": {
 			"color": "#f4f4f0",
-			"group": "tessuti e superfici",
-			"description": "ceramica lucida: lavandini, piatti, piastrelle",
+			"group": "fabrics and surfaces",
+			"description": "glossy ceramic: sinks, plates, tiles",
 			"rough": 0.25
 		},
-		"nero": {
+		"black": {
 			"color": "#2a2a2e",
-			"group": "tessuti e superfici",
-			"description": "nero opaco: schermi, gomme, dettagli",
+			"group": "fabrics and surfaces",
+			"description": "matte black: screens, rubber, details",
 			"rough": 0.6
 		},
-		"luce_calda": {
+		"warm_light": {
 			"color": "#ffd27a",
-			"group": "luci",
-			"description": "luce calda: lampade, lanterne, finestre accese",
+			"group": "lights",
+			"description": "warm light: lamps, lanterns, lit windows",
 			"rough": 0.5,
 			"glow": 2.0
 		},
 		"neon": {
 			"color": "#4fd1ff",
-			"group": "luci",
-			"description": "neon azzurro: insegne",
+			"group": "lights",
+			"description": "light blue neon: signs",
 			"rough": 0.4,
 			"glow": 2.5
 		},
 		"lava": {
 			"color": "#ff6a1a",
-			"group": "luci",
-			"description": "lava, braci, fuoco",
+			"group": "lights",
+			"description": "lava, embers, fire",
 			"rough": 0.6,
 			"glow": 3.0
 		}

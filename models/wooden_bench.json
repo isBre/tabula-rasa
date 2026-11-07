@@ -1,11 +1,11 @@
 {
-	"author": "Scultore",
-	"description": "Panchina da parco low-poly: seduta e schienale in listelli di legno, fianchi e braccioli in ferro scuro. 1.7x0.92x0.52 m, fronte +Z.",
-	"name": "panchina_legno",
+	"author": "Sculptor",
+	"description": "Low-poly park bench: seat and backrest in wooden slats, sides and armrests in dark iron. 1.7x0.92x0.52 m, front +Z.",
+	"name": "wooden_bench",
 	"parts": [
 		{
-			"id": "gamba",
-			"mat": "ferro_scuro",
+			"id": "leg",
+			"mat": "dark_iron",
 			"mirror": "x",
 			"positions": [
 				[
@@ -22,8 +22,8 @@
 			]
 		},
 		{
-			"id": "seduta",
-			"mat": "legno",
+			"id": "seat",
+			"mat": "wood",
 			"positions": [
 				[
 					0.0,
@@ -44,8 +44,8 @@
 			]
 		},
 		{
-			"id": "montante",
-			"mat": "ferro_scuro",
+			"id": "upright",
+			"mat": "dark_iron",
 			"mirror": "x",
 			"positions": [
 				[
@@ -62,8 +62,8 @@
 			]
 		},
 		{
-			"id": "dorsale",
-			"mat": "legno",
+			"id": "back_slat",
+			"mat": "wood",
 			"positions": [
 				[
 					0.0,
@@ -84,8 +84,8 @@
 			]
 		},
 		{
-			"id": "bracciolo",
-			"mat": "ferro_scuro",
+			"id": "armrest",
+			"mat": "dark_iron",
 			"mirror": "x",
 			"positions": [
 				[
@@ -103,5 +103,5 @@
 		}
 	],
 	"saved": "2026-11-07T12:46:24",
-	"tags": "panchina parco arredo urbano seduta"
+	"tags": "bench park street furniture seat"
 }

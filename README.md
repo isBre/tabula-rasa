@@ -1,294 +1,334 @@
 # Tabula Rasa
 
-Un mondo 3D vuoto, tu e una squadra di agenti AI (Claude). Gli agenti vedono lo stato
-del mondo, parlano con te e tra loro, si dividono il lavoro e costruiscono scrivendo GDScript
-compilato a runtime. Tu puoi muoverti, parlargli e scrivere codice nella tua console.
+An empty 3D world, you and a team of AI agents (Claude). The agents see the state of the
+world, talk to you and to each other, split the work and build by writing GDScript that is
+compiled at runtime. You can walk around, talk to them and write code in your own console.
 
-![Il villaggio costruito dalla squadra, con la chat e lo stato degli agenti](docs/screenshots/01_villaggio.jpg)
+![The village built by the team, with the chat and the agents' status](docs/screenshots/01_village.jpg)
 
-| Tramonto | Notte |
+| Sunset | Night |
 |---|---|
-| ![Viale di lampioni al tramonto](docs/screenshots/02_tramonto.jpg) | ![Lo stesso viale di notte](docs/screenshots/03_notte.jpg) |
-| **Cosa vede un agente: ispezione in 4 viste** | **Il giocatore visto da un agente (modalità costruzione)** |
-| ![Ispezione automatica della casetta da 4 angolazioni](docs/screenshots/04_ispezione_agente.jpg) | ![L'avatar del giocatore indica la casetta selezionata](docs/screenshots/05_giocatore_visto_dagli_agenti.jpg) |
+| ![Streetlight avenue at sunset](docs/screenshots/02_sunset.jpg) | ![The same avenue at night](docs/screenshots/03_night.jpg) |
+| **What an agent sees: 4-view inspection** | **The player seen by an agent (build mode)** |
+| ![Automatic inspection of the cottage from 4 angles](docs/screenshots/04_agent_inspection.jpg) | ![The player's avatar pointing at the selected cottage](docs/screenshots/05_player_seen_by_agents.jpg) |
 
-<details><summary>Menu impostazioni</summary>
+<details><summary>Settings menu</summary>
 
-![Menu con interfaccia, controlli, agenti e mondo](docs/screenshots/06_menu.jpg)
+![Menu with interface, controls, agents and world](docs/screenshots/06_menu.jpg)
 
 </details>
 
-## La squadra
+## The team
 
-I ruoli predefiniti sono in `agents.json` (nome, colore, modello, ruolo):
-- **Architetto** (lead): strutture, layout, piano e deleghe. Usa Haiku, ma passa a Sonnet
-  (`model_for_player` in `agents.json`) nei turni in cui gli scrivi tu;
-- **Paesaggista**: natura a grande scala (terreno, foreste, fiumi, rocce);
-- **Decoratore**: dettagli a scala umana (arredi, luci, insegne, fiori);
-- **Ingegnere**: meccanismi, animazioni, fisica, minigiochi;
-- **Scultore** (Sonnet): progetta i modelli della libreria nel laboratorio, su richiesta dei compagni;
-- **Critico** (`reviewer: true`): non costruisce. Parte da solo qualche secondo dopo che un
-  compagno finisce un lavoro (al massimo 3 volte per ogni tuo messaggio), lo ispeziona con
-  measure / inspect_visual / walk_test e manda all'autore le correzioni puntuali.
+The default roles are in `agents.json` (name, color, model, role):
+- **Architect** (lead): structures, layout, planning and delegating. Uses Haiku, but switches to
+  Sonnet (`model_for_player` in `agents.json`) in the turns where you write to it;
+- **Landscaper**: nature at a large scale (terrain, forests, rivers, rocks);
+- **Decorator**: details at human scale (furniture, lights, signs, flowers);
+- **Engineer**: mechanisms, animations, physics, minigames;
+- **Sculptor** (Sonnet): designs the library's models in the workshop, when teammates ask;
+- **Critic** (`reviewer: true`): doesn't build. It starts on its own a few seconds after a
+  teammate finishes a job (at most 3 times per message of yours), inspects it with
+  measure / inspect_visual / walk_test and sends the author specific fixes.
 
-Gli agenti hanno un corpo umano low-poly nel loro colore: prima di costruire o modificare
-qualcosa camminano fin lì (o volano, se il punto è in alto) e lo indicano mentre ci lavorano;
-quando ti parlano ti raggiungono e muovono la bocca, e lo stesso fanno con il compagno a cui
-parlano. Gli agenti restano dove lavorano e ti raggiungono solo quando ti allontani più di ~16 m
-(`/segui` per disattivarlo). Durante ogni foto tutti i robottini vengono nascosti per un istante.
+The agents have a low-poly human body in their color: before building or changing something
+they walk there (or fly, if the spot is high up) and point at it while they work; when they
+talk to you they come to you and move their mouth, and they do the same with the teammate they
+talk to. The agents stay where they work and only catch up with you when you get more than
+~16 m away (`/follow` turns that off). During every photo all the bodies are hidden for an
+instant.
 
-In gioco:
-- `@Nome messaggio` parla a un agente, `@tutti` a tutti; senza menzione risponde il lead.
-- `/nuovo Nome: descrizione del ruolo` crea un nuovo agente (massimo 6), `/rimuovi Nome` lo toglie,
-  `/agenti` elenca la squadra. Gli agenti creati in gioco vengono salvati con il mondo.
-- Gli agenti si parlano con `say` verso un compagno, che viene "svegliato" e risponde. Per
-  evitare chiacchiere infinite, tra due tuoi messaggi ogni agente può essere svegliato da altri
-  agenti al massimo 4 volte.
-- Tutti vedono la **lavagna condivisa**: una sezione per agente con piano, aree e compiti.
+In game:
+- `@Name message` talks to an agent, `@all` to everyone; without a mention the lead answers.
+- `/new Name: role description` creates a new agent (at most 8 in total), `/remove Name`
+  removes it, `/agents` lists the team. Agents created in game are saved with the world.
+- The agents talk to each other with `say` toward a teammate, who is "woken up" and answers. To
+  avoid endless chatter, between two of your messages each agent can be woken up by other
+  agents at most 4 times.
+- Everyone sees the **shared board**: one section per agent with plan, areas and tasks.
 
-## Visione
+## Vision
 
-Gli agenti hanno il tool `take_photo`: una camera virtuale (`scripts/photographer.gd`,
-una SubViewport che condivide il mondo) scatta una foto 800x450 dal punto scelto, oppure
-esattamente quello che vedi tu (`view="player"`). Il JPEG torna all'agente come immagine nel
-risultato del tool, e tu vedi la foto in un riquadro in basso a destra. Gli agenti la usano
-per controllare quello che costruiscono e quando chiedi "guarda" o "che ne pensi?". Le foto
-dei turni precedenti vengono tolte dalla cronologia per contenere i token. Tutte le immagini guardate dagli agenti (foto, ispezioni, anteprime del catalogo) restano
-in `photos/<data>/` con ora, agente e tipo nel nome del file.
+The agents have the `take_photo` tool: a virtual camera (`scripts/photographer.gd`, a
+SubViewport that shares the world) takes an 800x450 photo from the chosen spot, or exactly
+what you see (`view="player"`). The JPEG goes back to the agent as an image in the tool
+result, and you see the photo in a panel at the bottom right. The agents use it to check what
+they build and when you ask "look" or "what do you think?". Photos from earlier turns are
+removed from the history to keep the token count down. Every image the agents look at
+(photos, inspections, catalog previews) is kept in `photos/<date>/` with time, agent and kind
+in the file name.
 
-## Stile
+## Style
 
-Tutto quello che la squadra crea segue la stessa guida di stile (sezione STYLE del prompt):
-low-poly sfaccettato, forme piene, 2-4 colori per oggetto presi dalla **palette comune**,
-proporzioni reali e dettaglio omogeneo.
+Everything the team makes follows the same style guide (STYLE section of the prompt):
+faceted low-poly, solid shapes, 2-4 colors per object taken from the **shared palette**, real
+proportions and an even level of detail.
 
-- La palette è in `palette.json`, condivisa da tutti i mondi, organizzata per gruppi (pietra e
-  muratura, legni, natura, acqua e vetro, metalli, tessuti e superfici, luci) con una descrizione
-  per colore. Gli agenti la estendono con `add_color`, che rifiuta i quasi-doppioni e propone il
-  colore esistente. I nomi si usano come `"mat"` nelle ricette e in `Shapes.material(nome)`.
-- I colori `#rrggbb` restano permessi, ma il laboratorio li segnala. Il rapporto di
-  `design_model` ha una sezione **Stile** con consigli (non blocchi): colori fuori palette con il
-  più vicino, troppi colori, forme troppo lisce, pezzi più sottili di 1 cm, dettaglio eccessivo.
-- Nel menu, la scheda **Stile** mostra la palette a quadratini.
+- The palette is in `palette.json`, shared by every world, organized in groups (stone and
+  masonry, woods, nature, water and glass, metals, fabrics and surfaces, lights) with a
+  description per color. The agents extend it with `add_color`, which refuses near-duplicates
+  and suggests the existing color. The names are used as `"mat"` in recipes and in
+  `Shapes.material(name)`.
+- `#rrggbb` colors are still allowed, but the workshop flags them. The `design_model` report
+  has a **Style** section with advice (never a block): off-palette colors with the closest
+  one, too many colors, shapes that are too smooth, parts thinner than 1 cm, too much detail.
+- In the menu, the **Style** tab shows the palette as swatches.
 - Test: `tests/styletest.tscn`.
 
-## Modelli fatti dagli agenti (`Assets`)
+## Models made by the agents (`Assets`)
 
-Non ci sono modelli già pronti: ogni oggetto (divano, frigorifero, lampione, albero, carretto…)
-lo progetta la squadra. Un modello è una **ricetta JSON** in `models/<nome>.json`: una lista di
-pezzi del kit Shapes (box, cylinder, lathe, extrude, sweep, tube, roof, wall, light…), messi con
-coordinate o ancorati tra loro, con `positions` per le copie e `mirror` per la simmetria.
+There are no ready-made models: every object (sofa, fridge, streetlight, tree, cart…) is
+designed by the team. A model is a **JSON recipe** in `models/<name>.json`: a list of Shapes kit
+parts (box, cylinder, lathe, extrude, sweep, tube, roof, wall, light…), placed with
+coordinates or anchored to each other, with `positions` for copies and `mirror` for symmetry.
 
 ```json
 {"parts": [
-  {"id": "gamba", "shape": "box", "size": [0.05, 0.45, 0.05], "mat": "legno", "positions": [[0.2, 0, 0.2], [0.2, 0, -0.2]], "mirror": "x"},
-  {"id": "seduta", "shape": "box", "size": [0.5, 0.05, 0.5], "mat": "legno_chiaro", "position": [0, 0.45, 0]},
-  {"id": "schienale", "shape": "box", "size": [0.5, 0.45, 0.05], "mat": "legno", "anchor": {"to": "seduta", "side": "top", "align": "back"}}
+  {"id": "leg", "shape": "box", "size": [0.05, 0.45, 0.05], "mat": "wood", "positions": [[0.2, 0, 0.2], [0.2, 0, -0.2]], "mirror": "x"},
+  {"id": "seat", "shape": "box", "size": [0.5, 0.05, 0.5], "mat": "light_wood", "position": [0, 0.45, 0]},
+  {"id": "backrest", "shape": "box", "size": [0.5, 0.45, 0.05], "mat": "wood", "anchor": {"to": "seat", "side": "top", "align": "back"}}
 ]}
 ```
 
-- `design_model` è il **laboratorio**: costruisce la ricetta fuori dal mondo e restituisce 4 viste
-  (fronte, lato, retro 3/4, dall'alto) e un rapporto (misure, ingombro di ogni pezzo, pezzi sospesi,
-  errori). L'agente corregge e riprova finché il modello lo convince.
-- `save_model` lo mette nella libreria; `search_assets`, `preview_assets` e `spawn_asset` (anche
-  con `anchor`) lo usano come qualsiasi modello, e negli script `Assets.instance("nome", true)`.
-  Salvare con lo stesso nome aggiorna anche le copie già nel mondo. `get_model` rilegge una ricetta.
-- Il gioco normalizza ogni modello (origine al centro della base, fronte verso +Z), lo fonde in
-  una mesh per materiale con collisioni, e lo riusa per tutte le copie. Un modello può contenerne
-  altri (`"shape": "model"`).
-- Lo **Scultore** (Sonnet) è l'agente specializzato: gli altri gli chiedono i pezzi che mancano.
-- Test: `tests/modeltest.tscn` (offline) e `tests/sculptortest.tscn` (API vera).
+- `design_model` is the **workshop**: it builds the recipe outside the world and returns 4 views
+  (front, side, back 3/4, top) and a report (size, extent of every part, floating parts,
+  errors). The agent fixes it and tries again until it is happy with the model.
+- `save_model` puts it in the library; `search_assets`, `preview_assets` and `spawn_asset`
+  (with `anchor` too) use it like any other model, and in scripts
+  `Assets.instance("name", true)`. Saving under the same name also updates the copies already
+  in the world. `get_model` reads a recipe back.
+- The game normalizes every model (origin at the center of its base, front toward +Z), merges it
+  into one mesh per material with collisions, and reuses it for every copy. A model can contain
+  other models (`"shape": "model"`).
+- The **Sculptor** (Sonnet) is the specialized agent: the others ask it for the pieces they
+  are missing.
+- Test: `tests/modeltest.tscn` (offline) and `tests/sculptortest.tscn` (real API).
 
-## Kit di forme low-poly (`Shapes`)
+## Low-poly shape kit (`Shapes`)
 
-Autoload `scripts/shapes.gd`, usabile dagli script degli agenti e dalla tua console. Ogni
-funzione restituisce un nodo con l'origine alla base, già con collisioni e ombreggiatura piatta:
-`box`, `cylinder`, `cone`, `sphere`, `lathe` (tornio), `extrude`, `sweep`, `tube`, `ribbon`
-(strade), `wall` (con porte e finestre), `arch`, `roof` (gable/hip/pyramid/shed/flat), `stairs`,
-`fence`, `tree` (round/pine/birch/autumn), `bush`, `rock`, `terrain`, `water`, `text`, `scatter`,
-più una palette di materiali (`Shapes.material("legno")`, "pietra", "tetto", "foglie"…).
-Esempio nella console (Tab): `add_child(Shapes.tree("pine", 5))`.
+Autoload `scripts/shapes.gd`, usable by the agents' scripts and by your console. Every function
+returns a node with its origin at the base, with collisions and flat shading already set up:
+`box`, `cylinder`, `cone`, `sphere`, `lathe`, `extrude`, `sweep`, `tube`, `ribbon` (roads),
+`wall` (with doors and windows), `arch`, `roof` (gable/hip/pyramid/shed/flat), `stairs`,
+`fence`, `tree` (round/pine/birch/autumn), `bush`, `rock`, `terrain`, `water`, `text`,
+`scatter`, plus a palette of materials (`Shapes.material("wood")`, "stone", "roof_tiles",
+"leaves"…). Example in the console (Tab): `add_child(Shapes.tree("pine", 5))`.
 
-Tu e il manichino del walk test salite da soli i gradini fino a 40 cm.
+You and the walk-test dummy climb steps up to 40 cm on your own.
 
-## Ancoraggi (piazzare senza coordinate)
+## Anchors (placing without coordinates)
 
-Invece di calcolare coordinate, gli agenti dicono *rispetto a cosa* va messo un oggetto e il
-gioco fa la geometria dalle dimensioni e rotazioni reali (`World.place` in `scripts/world.gd`).
-`spawn_asset`, `spawn_primitive`, `run_script` e `spawn_blueprint` accettano `anchor`; il tool
-`place` sposta un oggetto esistente allo stesso modo.
+Instead of computing coordinates, the agents say *relative to what* an object goes and the
+game does the geometry from the real sizes and rotations (`World.place` in
+`scripts/world.gd`). `spawn_asset`, `spawn_primitive`, `run_script` and `spawn_blueprint`
+accept `anchor`; the `place` tool moves an existing object the same way.
 
 ```json
-{"to": "obj_3/camera", "wall": "back"}                    // letto contro la parete di fondo
-{"to": "obj_7", "side": "left", "align": "back"}          // comodino a filo della testiera
-{"to": "obj_3/soggiorno", "wall": ["back", "left"]}       // poltrona nell'angolo
-{"to": "obj_10", "side": "top"}                           // lampada sul tavolo
-{"to": "obj_9", "side": "left", "face": "toward"}         // sedia di lato, girata verso il tavolo
-{"to": "obj_2", "side": "east", "gap": 6}                 // 6 m a est della fontana
+{"to": "obj_3/bedroom", "wall": "back"}                   // bed against the back wall
+{"to": "obj_7", "side": "left", "align": "back"}          // nightstand flush with the headboard
+{"to": "obj_3/living_room", "wall": ["back", "left"]}     // armchair in the corner
+{"to": "obj_10", "side": "top"}                           // lamp on the table
+{"to": "obj_9", "side": "left", "face": "toward"}         // chair at the side, facing the table
+{"to": "obj_2", "side": "east", "gap": 6}                 // 6 m east of the fountain
 ```
 
-- `to`: un id, un nodo con nome dentro uno script (`obj_12/cucina`), la sua N-esima parte
-  (`obj_12/3`), `"player"` o un punto `[x,y,z]`.
-- `side`: `front/back/left/right` sono i lati *dell'oggetto di riferimento* (seguono la sua
-  rotazione), `north/south/east/west` quelli del mondo, poi `top`, `bottom`, `inside`.
-- `wall` (con `inside`): trova la superficie vera della parete con dei raggi; due lati = angolo.
-- `align`, `gap`, `offset` (nel sistema del riferimento), `face`, `snap` per rifinire.
-- Negli script: `World.place(figlio, {"to": altro_figlio, "side": "right"})`.
+- `to`: an id, a named node inside a script (`obj_12/kitchen`), its Nth part (`obj_12/3`),
+  `"player"` or a point `[x,y,z]`.
+- `side`: `front/back/left/right` are the sides *of the reference object* (they follow its
+  rotation), `north/south/east/west` are the world's, then `top`, `bottom`, `inside`.
+- `wall` (with `inside`): finds the real wall surface with rays; two sides = a corner.
+- `align`, `gap`, `offset` (in the reference's frame), `face`, `snap` to fine-tune.
+- In scripts: `World.place(child, {"to": other_child, "side": "right"})`.
 
-Il controllo di posizionamento misura le sovrapposizioni lungo l'orientamento dei pezzi, quindi
-gli oggetti ruotati non danno più falsi allarmi. Test: `tests/anchortest.tscn` arreda una stanza
-ruotata di 30° solo con ancoraggi.
+The placement check measures overlaps along the pieces' own orientation, so rotated objects
+don't raise false alarms. Test: `tests/anchortest.tscn` furnishes a room rotated by 30° using
+only anchors.
 
-## Osservare e verificare
+## Observing and checking
 
-- `measure(id)`: bounding box, se poggia a terra, fluttua o è interrato, se ha collisioni, quanti
-  nodi ha e con cosa si sovrappone.
-- `inspect_visual(id)`: 4 viste inquadrate in automatico (fronte, lato, retro 3/4, dall'alto) in
-  un'unica immagine 2×2.
-- `walk_test(from, via, to)` (`scripts/walk_tester.gd`): un manichino con le dimensioni e la
-  fisica del giocatore prova il percorso (salta quando è bloccato) e riporta se arriva, dove si
-  blocca e quanto è alto l'ostacolo. La scia resta visibile 10 s: colorata se arriva, rossa se no.
-- `edit_script(id, old, new)`: modifica mirata dello script o di un comportamento, ricompilato al
-  suo posto. Se il nuovo codice non compila, non cambia niente.
+- `measure(id)`: bounding box, whether it rests on the ground, floats or is buried, whether it
+  has collisions, how many nodes it has and what it overlaps.
+- `inspect_visual(id)`: 4 automatically framed views (front, side, back 3/4, top) in a single
+  2×2 image.
+- `walk_test(from, via, to)` (`scripts/walk_tester.gd`): a dummy with the player's size and
+  physics tries the path (jumping when blocked) and reports whether it arrives, where it gets
+  stuck and how high the obstacle is. The trail stays visible for 10 s: colored if it
+  arrives, red if not.
+- `edit_script(id, old, new)`: targeted change to the script or to a behavior, recompiled in
+  place. If the new code doesn't compile, nothing changes.
 
-Il prompt insegna agli agenti un ciclo di revisione (misura → ispeziona → prova a camminarci →
-correggi, al massimo 2 giri) da fare prima di annunciare qualcosa di non banale.
+The prompt teaches the agents a review loop (measure → inspect → try walking it → fix, at most
+2 rounds) to do before announcing anything non-trivial.
 
 ## Chat
 
-La conversazione con te si vede sempre. In cima alla chat (e nel menu, Impostazioni) scegli cos'altro
-mostrare: **Squadra** (gli agenti che parlano tra loro), **Azioni** (ogni strumento che usano),
-**Pensieri**, **Sistema**. Azioni e Pensieri sono spenti di default: cosa fa ogni agente si vede nel
-pannello in alto. Cambiare filtro nasconde o fa ricomparire anche i messaggi passati; la scelta
-viene ricordata.
+The conversation with you is always shown. At the top of the chat (and in the menu, Settings)
+you choose what else to show: **Team** (the agents talking to each other), **Actions** (every
+tool they use), **Thoughts**, **System**. Actions and Thoughts are off by default: what each
+agent is doing is shown in the panel at the top. Changing a filter also hides or brings back
+past messages; the choice is remembered.
 
-## Modalità costruzione (B)
+## Build mode (B)
 
-Mira e clicca per selezionare un oggetto (riquadro giallo). G lo afferra: segue il mirino
-appoggiandosi alle superfici, e un clic lo posa (Esc annulla). R / Shift+R ruota di 15°, la
-rotellina ruota (con Shift scala), +/- scala, C duplica e afferra la copia, X elimina.
-Gli agenti ricevono in contesto ogni tua modifica.
+Aim and click to select an object (yellow box). G grabs it: it follows your aim, resting on
+surfaces, and a click drops it (Esc cancels). R / Shift+R rotates by 15°, the mouse wheel
+rotates (with Shift it scales), +/- scales, C duplicates and grabs the copy, X deletes.
+The agents get every change of yours as context.
 
-## Cronologia e undo
+## History and undo
 
-Ogni turno di un agente che cambia il mondo e ogni tua azione creano uno stato nella cronologia
-(in memoria, ultimi 60). Ctrl/Cmd+Z o `/annulla` torna indietro di un passo, `/storia` mostra
-chi ha fatto cosa, `/ripristina N` riporta il mondo allo stato N.
+Every agent turn that changes the world and every action of yours creates a state in the
+history (in memory, the last 60). Ctrl/Cmd+Z or `/undo` goes back one step, `/history` shows
+who did what, `/restore N` brings the world back to state N.
 
-## Ambiente
+## Environment
 
-`scripts/environment.gd`: cielo procedurale, sole e luna, ora del giorno, ciclo giorno/notte,
-nebbia e stile del terreno (griglia, prato, sabbia, neve, pietra, terra). Lo controllano gli
-agenti con `set_environment` e tu con `/ora`, `/ciclo`, `/terreno`, `/nebbia`. Viene salvato
-con il mondo.
+`scripts/environment.gd`: procedural sky, sun and moon, time of day, day/night cycle, fog and
+ground style (grid, grass, sand, snow, stone, dirt). The agents control it with
+`set_environment` and you with `/time`, `/cycle`, `/ground`, `/fog`. It is saved with the
+world.
 
-## Blueprint
+## Blueprints
 
-Un oggetto riuscito si salva come modello riutilizzabile in `blueprints/` (condiviso tra tutti i
-mondi): gli agenti usano `save_blueprint` e `spawn_blueprint`, e vedono l'elenco nello stato del
-mondo. Tu usi `/blueprint nome descrizione` (sull'oggetto mirato), `/piazza nome` e `/blueprints`.
+A successful object can be saved as a reusable blueprint in `blueprints/` (shared by every
+world): the agents use `save_blueprint` and `spawn_blueprint`, and see the list in the world
+state. You use `/blueprint name description` (on the object you aim at), `/place name` and
+`/blueprints`.
 
-## Costi
+## Costs
 
-Ogni risposta dell'API riporta i token usati; il gioco stima la spesa per agente (prezzi in
-`scripts/team.gd`, da verificare sulla pagina ufficiale) e la mostra nell'HUD. `/costi` dà il
-dettaglio, `/budget N` o la scheda **Costi** del menu impostano il tetto in dollari (default 2,
-ricordato tra un avvio e l'altro). Quando lo si raggiunge, gli agenti
-si fermano e l'autonomia si spegne.
+Every API response reports the tokens used; the game estimates the spending per agent (prices
+in `scripts/team.gd`, check them on the official page) and shows it in the HUD. `/costs` gives
+the details, `/budget N` or the menu's **Costs** tab set the cap in dollars (default 2,
+remembered between launches). When the cap is reached, the agents stop and autonomy turns off.
 
-Nel menu, la scheda **Costi** mostra la spesa della sessione (per agente e per modello, costo
-medio per chiamata, contesto medio, foto), lo storico di tutte le sessioni da `logs/usage.csv`
-(per giorno, agente e modello) e i prezzi usati per le stime. Lì c'è anche l'opzione **Modello
-forte solo per pianificare** (accesa di default): negli agenti con `model_for_player` il modello
-forte fa solo la prima chiamata del turno (capisce, pianifica, delega) e i passi successivi usano
-il modello base. La tabella **In cosa va l'output** divide i token generati per tipo (messaggi a
-te, messaggi tra agenti, pensieri, codice, modelli 3D, lavagna, altri strumenti) e ne mostra il
-peso sulla spesa: è una stima, perché l'API dà solo il totale, ripartito in proporzione alla
-lunghezza di ogni parte della risposta (colonna `output_split` di `logs/usage.csv`).
-Test offline: `tests/coststest.tscn`.
+In the menu, the **Costs** tab shows this session's spending (per agent and per model, average
+cost per call, average context, photos), the history of every session from `logs/usage.csv`
+(per day, agent and model) and the prices used for the estimates. It also has the **Strong
+model only to plan** option (on by default): for agents with `model_for_player`, the strong
+model only makes the first call of the turn (understands, plans, delegates) and the following
+steps use the base model. The **Where the output goes** table splits the generated tokens by
+kind (messages to you, messages between agents, thoughts, code, 3D models, board, other tools)
+and shows their weight on the spending: it is an estimate, because the API only gives the
+total, split in proportion to the length of each part of the answer (`output_split` column of
+`logs/usage.csv`). Offline test: `tests/coststest.tscn`.
 
-## Salvataggi
+## Saves
 
-Il mondo (oggetti, script, comportamenti, lavagna, agenti creati in gioco, posizioni) viene
-salvato in `saves/autosave.json` ogni 90 secondi e alla chiusura, e ricaricato all'avvio.
-`/salva nome`, `/carica nome` e `/salvataggi` gestiscono salvataggi con nome. Prima di ogni
-salvataggio automatico la versione precedente viene copiata in `saves/autosave_precedente.json`
-(si recupera con `/carica autosave_precedente`). Le scene in `tests/` non salvano mai il mondo.
+The world (objects, scripts, behaviors, board, agents created in game, positions) is saved to
+`saves/autosave.json` every 90 seconds and on exit, and loaded again at startup.
+`/save name`, `/load name` and `/saves` handle named saves. Before every autosave the previous
+version is copied to `saves/autosave_previous.json` (get it back with
+`/load autosave_previous`). The scenes in `tests/` never save the world.
 
-L'interfaccia si adatta alla densità dello schermo (2x su Retina); `/ui 1.2` la ingrandisce,
-`/ui 0.9` la rimpicciolisce, e la scelta viene ricordata. La memoria della
-conversazione degli agenti non viene salvata: ripartono dal mondo e dalla lavagna.
+Worlds saved before the game was translated still load: `scripts/legacy.gd` maps the old
+Italian names (agents, palette colors, models, blueprints, ground types, hats and hair styles)
+to the English ones.
 
-## Agenti e NPC (Esc > Agenti)
+The interface adapts to the screen density (2x on Retina); `/ui 1.2` enlarges it, `/ui 0.9`
+shrinks it, and the choice is remembered. The agents' conversation memory is not saved: they
+start again from the world and the board.
 
-Nel menu, la scheda **Agenti** elenca la squadra. Per ogni agente scegli il **modello** (Haiku,
-Sonnet, Opus, e facoltativamente uno diverso per quando gli scrivi tu) e puoi **nasconderlo**
-(sparisce dal mondo e non lavora finché non lo rimostri). Con **+ Nuovo agente o NPC** ne crei
-altri: nome, ruolo e personalità, colore, modello e tre permessi:
-- *può costruire e modificare il mondo* (senza, è un **NPC**: parla, cammina, osserva, reagisce);
-- *può creare modelli* (laboratorio);
-- *può vedere* (foto e ispezioni, che costano di più).
+## Agents and NPCs (Esc > Agents)
 
-Gli NPC non volano: camminano sempre a terra. Con **Modifica** si sceglie anche l'**aspetto**
-(carnagione, capelli e colore, pantaloni, cappello, altezza), per tutti gli agenti; la maglia è il
-loro colore. In **Impostazioni** l'autonomia è separata: *Agenti* (piccoli lavori da soli) e *NPC*
-(passeggiano, commentano, salutano); entrambe spente all'avvio. In gioco gli agenti stanno nel
-pannello in alto a destra, gli NPC in quello in alto a sinistra.
+In the menu, the **Agents** tab lists the team. For each agent you choose the **model**
+(Haiku, Sonnet, Opus, and optionally a different one for when you write to it) and you can
+**hide** it (it disappears from the world and doesn't work until you show it again). With
+**+ New agent or NPC** you create more: name, role and personality, color, model and three
+permissions:
+- *can build and change the world* (without it, it's an **NPC**: it talks, walks, watches,
+  reacts);
+- *can make models* (workshop);
+- *can see* (photos and inspections, which cost more).
 
-I permessi sono veri: l'agente riceve solo i tool consentiti e il prompt glielo dice. Gli agenti
-predefiniti (`agents.json`) non si modificano né si rimuovono; quelli creati da te sì, e vengono
-salvati con il mondo. La scelta del modello dei predefiniti resta su questo computer.
-La scheda **Comandi** elenca tasti e comandi della chat.
+NPCs don't fly: they always walk on the ground. With **Edit** you also choose the
+**appearance** (skin, hair style and color, trousers, hat, height), for every agent; the shirt
+is their color. In **Settings** autonomy is split: *Agents* (small jobs on their own) and
+*NPCs* (they stroll, comment, greet); both are off at startup. In game the agents are in the
+panel at the top right, the NPCs in the one at the top left.
 
-## Avvio
+The permissions are real: the agent only gets the allowed tools and the prompt tells it so.
+The built-in agents (`agents.json`) can't be edited or removed; the ones you create can, and
+they are saved with the world. The model choice for built-in agents stays on this computer.
+The **Commands** tab lists the keys and the chat commands.
 
-1. Metti la tua API key Anthropic in un file `api_key.txt` nella cartella del progetto
-   (è già nel `.gitignore`), oppure nella variabile d'ambiente `ANTHROPIC_API_KEY`.
-2. Apri il progetto con Godot 4.6 e premi F5, oppure fai doppio clic su `run.command`.
+## Getting started
 
-Quando c'è un debugger collegato (F5 dall'editor), il gioco si riavvia da solo senza
-debugger: altrimenti ogni errore nel codice dell'agente bloccherebbe tutto in un
-"Debugger Break". Quindi la finestra che resta aperta non si chiude con lo Stop
-dell'editor: chiudila normalmente. Per disattivare il comportamento metti
-`RELAUNCH_WITHOUT_DEBUGGER = false` in `scripts/main.gd`.
+1. Put your Anthropic API key in an `api_key.txt` file in the project folder (it's already in
+   `.gitignore`), or in the `ANTHROPIC_API_KEY` environment variable.
+2. Open the project with Godot 4.6 and press F5, or double-click `run.command`.
 
-Il modello di default è `claude-haiku-5-5` (economico); per costruzioni più ambiziose prova `claude-sonnet-5-5`; si cambia con la variabile `CLAUDE_MODEL`
-o in `scripts/agent_brain.gd`.
+With a debugger attached (F5 from the editor), any error in the agents' code stops the game in
+a "Debugger Break". `run.command` starts the game without the debugger, so a broken script
+from an agent only shows up as an error in its world state. `RELAUNCH_WITHOUT_DEBUGGER` in
+`scripts/main.gd` (off by default) makes the game restart itself without the debugger when
+it's launched from the editor; that window then doesn't close with the editor's Stop button,
+close it normally.
 
-## Comandi
+The default model is `claude-haiku-5-5` (cheap); for more ambitious builds try
+`claude-sonnet-5-5`. Change it per agent in the menu (Esc > Agents) or in `agents.json`.
 
-| Tasto | Azione |
+## Controls
+
+| Key | Action |
 |---|---|
-| WASD, Spazio, Shift | muoversi (con accelerazione), saltare (tieni premuto per saltare più in alto), correre |
-| F | volo on/off (Spazio/C per salire e scendere) |
-| Invio | scrivere all'agente |
-| Tab | console GDScript (Ctrl/Cmd+Invio esegue) |
-| X | elimina l'oggetto nel mirino |
-| P | autonomia degli agenti on/off (spenta all'avvio) |
-| Esc | menu (impostazioni, salva, annulla, reset totale, esci); chiude i pannelli aperti |
+| WASD, Space, Shift | move (with acceleration), jump (hold for a higher jump), run |
+| F | fly on/off (Space/C to go up and down) |
+| Enter | write to the agents |
+| Tab | GDScript console (Ctrl/Cmd+Enter runs it) |
+| B | build mode |
+| X | delete the object you aim at |
+| Ctrl/Cmd+Z | undo the last change |
+| P | agent autonomy on/off (off at startup) |
+| Esc | menu (settings, agents, style, costs, commands, save, undo, full reset, quit); closes open panels |
 
-In chat: `/aiuto` mostra tutti i comandi; `/reset` svuota il mondo, `/auto` autonomia on/off,
-`/clear` fa dimenticare la conversazione agli agenti.
+## Chat commands
 
-## Come funziona
+| Command | What it does |
+|---|---|
+| `@Name message` | talk to an agent (`@all` for everyone; without @ the lead answers) |
+| `/agents` · `/new Name: role` · `/remove Name` | list, create and remove agents |
+| `/save name` · `/load name` · `/saves` | named saves |
+| `/undo` · `/history` · `/restore N` | world history |
+| `/blueprint name description` · `/place name` · `/blueprints` | save, place and list blueprints |
+| `/time H` · `/cycle min` · `/ground type` · `/fog 0-1` | environment (`/cycle 0` stops time) |
+| `/costs` · `/budget $` | estimated spending and cap |
+| `/follow` | agents catch up with you on/off |
+| `/ui 1.2` | interface size |
+| `/auto` | autonomy on/off |
+| `/clear` | the agents forget the conversation |
+| `/reset` | empty the world |
+| `/wipe` | full reset (world, agents' memory, board, history) |
+| `/help` | all the commands in the chat |
 
-- `scripts/world.gd` (autoload `World`): l'API condivisa tra te e l'agente. Crea primitive,
-  compila script a runtime (`GDScript.new()` + `reload()`), tiene il registro degli oggetti,
-  descrive il mondo in testo, filtra le API pericolose e ha un watchdog sul numero di nodi.
-- `scripts/error_logger.gd`: un `Logger` che cattura errori e `print()` degli script, così
-  tornano all'agente e lui si corregge.
-- `scripts/agent_brain.gd`: la mente di un agente, il loop con la Claude API (tool use). Tool:
-  `say` (anche verso un compagno), `move_to`, `spawn_primitive`, `modify_object`,
-  `delete_object`, `run_script`, `attach_script`, `inspect_object`, `update_board`. Con
-  l'autonomia attiva, dopo 50–90 s di silenzio fa un piccolo passo da solo (massimo 3 di fila).
-- `scripts/team.gd`: la squadra, cioè ruoli, creazione degli agenti e smistamento dei messaggi.
-- `scripts/player.gd`, `scripts/agent.gd`, `scripts/ui.gd`, `scripts/main.gd`: giocatore,
-  corpo dell'agente, interfaccia e montaggio della scena.
-- `tests/`: `selftest` e `toolstest` provano l'API del mondo senza chiamare Claude; `apitest`,
-  `visiontest` e `reviewtest` usano l'API vera; `shapestest` costruisce una vetrina del kit; `screenshots` rigenera le immagini di questo README in `docs/screenshots/`. Ognuno scrive il risultato in `tests/*_output.txt`.
+## How it works
 
-## Limiti noti
+- `scripts/world.gd` (autoload `World`): the API shared by you and the agents. It creates
+  primitives, compiles scripts at runtime (`GDScript.new()` + `reload()`), keeps the registry
+  of objects, places things with anchors, checks placement, describes the world in text,
+  filters dangerous APIs and has a watchdog on the number of nodes.
+- `scripts/error_logger.gd`: a `Logger` that catches the scripts' errors and `print()` output,
+  so they go back to the agent and it can fix itself.
+- `scripts/agent_brain.gd`: an agent's mind, the loop with the Claude API (tool use), its
+  system prompt and tools (talking, building, scripting, modeling, measuring, photos, board).
+  With autonomy on, after 50–90 s of silence it takes a small step on its own (at most 3 in a
+  row).
+- `scripts/team.gd`: the team, i.e. roles, agent creation, message routing, reviews and costs.
+- `scripts/assets.gd` (autoload `Assets`): the model library and the workshop.
+- `scripts/shapes.gd` (autoload `Shapes`): the low-poly shape kit and the palette.
+- `scripts/legacy.gd`: the old Italian names, so that worlds saved before the translation keep
+  working.
+- `scripts/player.gd`, `scripts/avatar.gd`, `scripts/agent.gd`, `scripts/build_mode.gd`,
+  `scripts/ui.gd`, `scripts/settings_menu.gd`, `scripts/main.gd`: player, bodies, agent body,
+  build mode, interface, menu and scene setup.
+- `tests/`: `selftest`, `toolstest`, `featuretest`, `shapestest`, `modeltest`, `anchortest`,
+  `placetest`, `styletest`, `coststest`, `uitest` and the others run offline without calling
+  Claude; `apitest`, `apitest2`, `visiontest`, `reviewtest` and `sculptortest` use the real
+  API; `screenshots` regenerates the images of this README in `docs/screenshots/`. Each one
+  writes its result to `tests/*_output.txt`.
 
-- Il filtro sul codice è una blacklist di parole: va bene per uso personale, non è una sandbox.
-- Un loop infinito scritto dall'agente congela il gioco (GDScript non ha timeout).
-- Più agenti = più chiamate API: con l'autonomia attiva i costi crescono con la squadra.
+## Known limits
+
+- The code filter is a blacklist of words: fine for personal use, it's not a sandbox.
+- An infinite loop written by an agent freezes the game (GDScript has no timeout).
+- More agents = more API calls: with autonomy on, costs grow with the team.

@@ -17,11 +17,11 @@ func _ready() -> void:
 	player.global_position = Vector3(0, 0.1, 6)
 	player.rotation = Vector3.ZERO
 	World.chat_message.connect(func(a, t): _out.append("%s: %s" % [a, t]))
-	team.find_brain("Architetto").queue_event("[Il giocatore ti dice]: fai diventare il tramonto (ore 19) su un prato. Poi crea un lampione low-poly con una luce calda, salvalo come blueprint e piazzane 4 copie in fila lungo un sentiero che parte davanti a me e va verso -Z. Lavora da solo, senza delegare.")
+	team.find_brain("Architect").queue_event("[The player tells you]: make it sunset (7 pm) on grass. Then create a low-poly streetlight with a warm light, save it as a blueprint and place 4 copies in a row along a path that starts in front of me and goes toward -Z. Work alone, without delegating.")
 	for i in 16:
 		await get_tree().create_timer(10.0).timeout
 		_flush()
-		if not team.find_brain("Architetto").busy and i > 1:
+		if not team.find_brain("Architect").busy and i > 1:
 			break
 	var img: Image = await team.photographer.capture(Vector3(5, 4, 8), Vector3(0, 1, -6), World.agents.values())
 	img.save_jpg(ProjectSettings.globalize_path("res://tests/apitest2_photo.jpg"))

@@ -1,0 +1,25 @@
+{
+	"author": "Architect",
+	"bbox_size": [
+		0.8,
+		4.2,
+		0.8
+	],
+	"behaviors": [],
+	"blueprint": "streetlight",
+	"code": "extends Node3D\n\nfunc _ready():\n\t# base and post\n\tadd_child(Shapes.cylinder(0.28, 0.2, 8, \"dark_iron\"))\n\tvar pole := Shapes.cylinder(0.08, 3.2, 6, \"dark_iron\")\n\tpole.position = Vector3(0, 0.2, 0)\n\tadd_child(pole)\n\t# emissive lantern\n\tvar lantern := Shapes.box(Vector3(0.5, 0.5, 0.5), \"warm_light\")\n\tlantern.position = Vector3(0, 3.65, 0)\n\tadd_child(lantern)\n\t# little roof\n\tvar cap := Shapes.cone(0.4, 0.3, 4, \"dark_iron\")\n\tcap.position = Vector3(0, 3.9, 0)\n\tadd_child(cap)\n\t# warm light\n\tvar light := OmniLight3D.new()\n\tlight.light_color = Color(\"#ffb347\")\n\tlight.light_energy = 2.0\n\tlight.omni_range = 9.0\n\tlight.shadow_enabled = false\n\tlight.position = Vector3(0, 3.5, 0)\n\tadd_child(light)\n",
+	"description": "Low-poly garden streetlight: dark post 3.9 m tall, warm emissive lantern and an amber OmniLight.",
+	"kind": "script",
+	"name": "streetlight_prototype",
+	"rotation_deg": [
+		0.0,
+		0.0,
+		0.0
+	],
+	"saved_by": "Architect",
+	"scale": [
+		1.0,
+		1.0,
+		1.0
+	]
+}

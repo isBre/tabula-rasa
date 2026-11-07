@@ -16,6 +16,7 @@ const FORBIDDEN_WORDS := [
 ]
 
 const LoggerScript := preload("res://scripts/error_logger.gd")
+const Legacy := preload("res://scripts/legacy.gd")
 
 var root: Node3D
 var player  # player.gd (CharacterBody3D)
@@ -53,9 +54,9 @@ func _process(delta: float) -> void:
 		_watchdog_cd = 1.0
 		var victim := _newest_scripted()
 		if victim != "":
-			_notices.append("WATCHDOG: più di %d nodi nella scena, ho eliminato %s." % [MAX_NODES, victim])
+			_notices.append("WATCHDOG: more than %d nodes in the scene, deleted %s." % [MAX_NODES, victim])
 			delete_object({"id": victim}, "system")
-			chat_message.emit("Sistema", "Watchdog: troppi nodi, eliminato " + victim)
+			chat_message.emit("System", "Watchdog: too many nodes, deleted " + victim)
 
 
 # ---------------------------------------------------------------- helpers
@@ -178,10 +179,10 @@ func _behaviors(n: Node) -> Array:
 
 func spawn_primitive(args: Dictionary, author: String, forced_id := "") -> Dictionary:
 	if entities.size() >= MAX_ENTITIES:
-		return _err("Limite di %d oggetti raggiunto: elimina qualcosa o usa run_script per raggruppare." % MAX_ENTITIES)
+		return _err("Limit of %d objects reached: delete something or use run_script to group things." % MAX_ENTITIES)
 	var shape := str(args.get("shape", "box"))
 	if not shape in SHAPES:
-		return _err("shape non valida '%s'. Usa: box, sphere, cylinder, cone, capsule, torus." % shape)
+		return _err("invalid shape '%s'. Use: box, sphere, cylinder, cone, capsule, torus." % shape)
 	var physics := str(args.get("physics", "static"))
 	var body: Node3D
 	match physics:
@@ -209,7 +210,7 @@ func spawn_primitive(args: Dictionary, author: String, forced_id := "") -> Dicti
 	body.rotation_degrees = vec3(args.get("rotation_deg"), Vector3.ZERO)
 	var id := forced_id if forced_id != "" else _new_id()
 	_register(body, id, "primitive", author, str(args.get("name", shape)))
-	var r := _ok("Creato %s (%s, %s) in %s" % [id, shape, physics, _v(body.position)])
+	var r := _ok("Created %s (%s, %s) at %s" % [id, shape, physics, _v(body.position)])
 	return _anchor_new(r, id, args) if forced_id == "" else r
 
 
@@ -217,11 +218,11 @@ func spawn_primitive(args: Dictionary, author: String, forced_id := "") -> Dicti
 
 func spawn_asset(args: Dictionary, author: String, forced_id := "") -> Dictionary:
 	if entities.size() >= MAX_ENTITIES:
-		return _err("Limite di %d oggetti raggiunto." % MAX_ENTITIES)
-	var asset_id := str(args.get("asset", ""))
+		return _err("Limit of %d objects reached." % MAX_ENTITIES)
+	var asset_id := Legacy.model(str(args.get("asset", "")))
 	if not Assets.has(asset_id):
 		var hits := Assets.search(asset_id.get_slice("/", 1).replace("_", " ") if "/" in asset_id else asset_id, 5)
-		return _err("Modello '%s' non trovato. Forse: %s" % [asset_id, ", ".join(PackedStringArray(hits.map(func(e): return e.id)))])
+		return _err("Model '%s' not found. Maybe: %s" % [asset_id, ", ".join(PackedStringArray(hits.map(func(e): return e.id)))])
 	var solid: bool = args.get("solid", true) != false
 	var node: Node3D = Assets.instance(asset_id, solid)
 	var native: Vector3 = Assets.info(asset_id).get("size", Vector3.ZERO)
@@ -249,11 +250,11 @@ func spawn_asset(args: Dictionary, author: String, forced_id := "") -> Dictionar
 		if args.get("snap", true) != false:
 			var gy := _surface_below(node.position, [])
 			if gy != INF and absf(gy - node.position.y) > 0.01:
-				notes.append("appoggiato sulla superficie a y=%.2f" % gy)
+				notes.append("resting on the surface at y=%.2f" % gy)
 				node.position.y = gy
 	var id := forced_id if forced_id != "" else _new_id()
 	_register(node, id, "asset", author, str(args.get("name", asset_id.get_slice("/", 1))))
-	var txt := "Creato %s (%s) in %s, rotazione %d°, dimensioni %s m." % [id, asset_id, _v(node.position), roundi(node.rotation_degrees.y), _v(native * s)]
+	var txt := "Created %s (%s) at %s, rotation %d°, size %s m." % [id, asset_id, _v(node.position), roundi(node.rotation_degrees.y), _v(native * s)]
 	notes = PackedStringArray(Array(notes).filter(func(x): return x != ""))
 	if not notes.is_empty():
 		txt += " " + "; ".join(notes) + "."
@@ -289,14 +290,14 @@ func _push_against_wall(node: Node3D, size: Vector3) -> String:
 			best_d = d
 			best = hit
 	if best.is_empty():
-		return "nessun muro entro 4 m: lasciato dov'era"
+		return "no wall within 4 m: left where it was"
 	var n: Vector3 = best.normal
 	n.y = 0.0
 	n = n.normalized()
 	node.rotation.y = atan2(n.x, n.z)          # front (+Z) along the wall's normal, into the room
 	var p: Vector3 = best.position + n * (size.z * 0.5 + 0.02)
 	node.position = Vector3(p.x, node.position.y, p.z)
-	return "spinto contro il muro più vicino, rivolto verso la stanza"
+	return "pushed against the nearest wall, facing into the room"
 
 
 func _build_primitive(body: Node3D) -> void:
@@ -377,7 +378,7 @@ func modify_object(args: Dictionary, _author: String) -> Dictionary:
 	var id := str(args.get("id", ""))
 	var node = _get_entity(id)
 	if node == null:
-		return _err("Oggetto '%s' non trovato." % id)
+		return _err("Object '%s' not found." % id)
 	var notes_out := []
 	if args.has("position"):
 		node.position = vec3(args["position"], node.position)
@@ -410,15 +411,15 @@ func modify_object(args: Dictionary, _author: String) -> Dictionary:
 		if native.y > 0.001:
 			node.scale = Vector3.ONE * float(args["height"]) / native.y
 	elif args.has("size") or args.has("color") or args.has("shape"):
-		notes_out.append("size/color/shape valgono solo per le primitive: per oggetti script usa scale o riscrivi lo script.")
-	var txt := "Modificato %s." % id
+		notes_out.append("size/color/shape only apply to primitives: for script objects use scale or rewrite the script.")
+	var txt := "Modified %s." % id
 	if args.get("anchor") is Dictionary:
 		var p := place(node, args["anchor"])
 		if not p.ok:
 			return p
 		txt += " " + str(p.text) + "."
 	if not notes_out.is_empty():
-		txt += " Nota: " + " ".join(PackedStringArray(notes_out))
+		txt += " Note: " + " ".join(PackedStringArray(notes_out))
 	return _ok(txt)
 
 
@@ -439,9 +440,9 @@ func delete_object(args: Dictionary, _author: String) -> Dictionary:
 		entities.erase(id)
 		node.queue_free()
 		done.append(id)
-	var txt := "Eliminati: %s." % ", ".join(PackedStringArray(done)) if not done.is_empty() else "Nessun oggetto eliminato."
+	var txt := "Deleted: %s." % ", ".join(PackedStringArray(done)) if not done.is_empty() else "No object deleted."
 	if not missing.is_empty():
-		txt += " Non trovati: " + ", ".join(PackedStringArray(missing))
+		txt += " Not found: " + ", ".join(PackedStringArray(missing))
 	return {"ok": not done.is_empty(), "text": txt}
 
 
@@ -464,26 +465,26 @@ func check_code(code: String) -> String:
 
 func _compile(code: String, tag: String) -> Dictionary:
 	if code.strip_edges() == "":
-		return _err("Codice vuoto.")
+		return _err("Empty code.")
 	var bad := check_code(code)
 	if bad != "":
-		return _err("Codice rifiutato dal filtro di sicurezza: '%s' non è consentito." % bad)
+		return _err("Code rejected by the safety filter: '%s' is not allowed." % bad)
 	_script_counter += 1
 	var s := GDScript.new()
 	s.source_code = code
 	s.resource_path = "res://__live__/%s_v%d.gd" % [tag, _script_counter]
 	_logger.take()
 	var err := s.reload()
-	var errs: Array = _logger.take().filter(func(e): return str(e).begins_with("ERRORE"))
+	var errs: Array = _logger.take().filter(func(e): return str(e).begins_with("ERROR"))
 	if err != OK:
-		var detail := "\n".join(PackedStringArray(errs)) if not errs.is_empty() else "(nessun dettaglio disponibile)"
-		return _err("Errore di compilazione (codice %d):\n%s" % [err, detail])
+		var detail := "\n".join(PackedStringArray(errs)) if not errs.is_empty() else "(no details available)"
+		return _err("Compile error (code %d):\n%s" % [err, detail])
 	return {"ok": true, "script": s}
 
 
 func run_script(args: Dictionary, author: String, forced_id := "") -> Dictionary:
 	if entities.size() >= MAX_ENTITIES:
-		return _err("Limite di %d oggetti raggiunto." % MAX_ENTITIES)
+		return _err("Limit of %d objects reached." % MAX_ENTITIES)
 	var code := str(args.get("code", ""))
 	var id := forced_id if forced_id != "" else _new_id()
 	var c := _compile(code, id)
@@ -492,7 +493,7 @@ func run_script(args: Dictionary, author: String, forced_id := "") -> Dictionary
 	var script: GDScript = c.script
 	var base := script.get_instance_base_type()
 	if not ClassDB.is_parent_class(base, "Node3D"):
-		return _err("Lo script di run_script deve estendere Node3D (o una sottoclasse), invece estende %s." % base)
+		return _err("The run_script script must extend Node3D (or a subclass), but it extends %s." % base)
 	var node: Node3D = ClassDB.instantiate(base)
 	node.set_script(script)
 	node.position = vec3(args.get("position"), Vector3.ZERO)
@@ -500,7 +501,7 @@ func run_script(args: Dictionary, author: String, forced_id := "") -> Dictionary
 	node.set_meta("code", code)
 	_logger.take()
 	_register(node, id, "script", author, str(args.get("name", "script")))
-	var r := _ok(_with_runtime_report("Creato %s (script %s) in %s." % [id, base, _v(node.position)]))
+	var r := _ok(_with_runtime_report("Created %s (script %s) at %s." % [id, base, _v(node.position)]))
 	return _anchor_new(r, id, args) if forced_id == "" else r
 
 
@@ -508,15 +509,15 @@ func attach_script(args: Dictionary, _author: String) -> Dictionary:
 	var id := str(args.get("id", ""))
 	var target = _get_entity(id)
 	if target == null:
-		return _err("Oggetto '%s' non trovato." % id)
+		return _err("Object '%s' not found." % id)
 	var code := str(args.get("code", ""))
-	var c := _compile(code, id + "_comportamento")
+	var c := _compile(code, id + "_behavior")
 	if not c.ok:
 		return c
 	var script: GDScript = c.script
 	var base := script.get_instance_base_type()
 	if not ClassDB.is_parent_class(base, "Node"):
-		return _err("Lo script deve estendere Node, invece estende %s." % base)
+		return _err("The script must extend Node, but it extends %s." % base)
 	if args.get("replace", true) == true:
 		for b in _behaviors(target):
 			b.queue_free()
@@ -527,26 +528,26 @@ func attach_script(args: Dictionary, _author: String) -> Dictionary:
 	beh.set_meta("code", code)
 	_logger.take()
 	target.add_child(beh, true)
-	return _ok(_with_runtime_report("Comportamento collegato a %s." % id))
+	return _ok(_with_runtime_report("Behavior attached to %s." % id))
 
 
 func _with_runtime_report(txt: String) -> String:
 	var errs: Array = _logger.take()
 	if errs.is_empty():
 		return txt
-	return txt + "\nOutput/errori durante _ready():\n" + "\n".join(PackedStringArray(errs.slice(0, 15)))
+	return txt + "\nOutput/errors during _ready():\n" + "\n".join(PackedStringArray(errs.slice(0, 15)))
 
 
 func inspect_object(args: Dictionary) -> Dictionary:
 	var id := str(args.get("id", ""))
 	var n = _get_entity(id)
 	if n == null:
-		return _err("Oggetto '%s' non trovato." % id)
+		return _err("Object '%s' not found." % id)
 	var out := _entity_line(n)
 	if n.has_meta("code"):
 		out += "\n--- script ---\n" + str(n.get_meta("code"))
 	for b in _behaviors(n):
-		out += "\n--- comportamento (%s) ---\n%s" % [b.name, str(b.get_meta("code"))]
+		out += "\n--- behavior (%s) ---\n%s" % [b.name, str(b.get_meta("code"))]
 	return _ok(out)
 
 
@@ -561,10 +562,8 @@ const ANCHOR_SIDES := {
 	"top": Vector3.UP, "bottom": Vector3.DOWN,
 }
 const ANCHOR_ALIASES := {
-	"davanti": "front", "dietro": "back", "behind": "back", "sinistra": "left", "destra": "right",
-	"nord": "north", "sud": "south", "est": "east", "ovest": "west",
-	"on": "top", "above": "top", "on_top": "top", "sopra": "top", "below": "bottom", "under": "bottom", "sotto": "bottom",
-	"in": "inside", "into": "inside", "dentro": "inside",
+	"behind": "back", "on": "top", "above": "top", "on_top": "top", "below": "bottom", "under": "bottom",
+	"in": "inside", "into": "inside", "within": "inside",
 }
 const RELATIVE_SIDES := ["front", "back", "left", "right"]
 
@@ -587,14 +586,14 @@ func anchor_target(t) -> Variant:
 	if t is Array or t is Vector3 or t is Dictionary:
 		return vec3(t)
 	var s := str(t).strip_edges()
-	if s.to_lower() in ["player", "giocatore"]:
+	if s.to_lower() == "player":
 		return player
 	var bits := s.split("/", true, 1)
 	var n = _get_entity(bits[0])
 	if n == null or bits.size() == 1:
 		return n
 	var sub := bits[1].strip_edges()
-	var num := sub.to_lower().replace("parte", "").replace("part", "").strip_edges()
+	var num := sub.to_lower().replace("part", "").strip_edges()
 	if num.is_valid_int():
 		var ps := _parts(n)
 		var i := int(num) - 1
@@ -669,7 +668,7 @@ func _anchor_face(node: Node3D, face, side: String, walls: Array, frame: Transfo
 				return null
 			for w in walls:
 				d -= frame.basis * ANCHOR_SIDES[w]
-		"toward", "towards", "verso", "away":
+		"toward", "towards", "away":
 			if ANCHOR_SIDES.has(side) and not side in ["top", "bottom"]:
 				d = frame.basis * -ANCHOR_SIDES[side]
 			else:
@@ -677,7 +676,7 @@ func _anchor_face(node: Node3D, face, side: String, walls: Array, frame: Transfo
 				d = c - node.global_position
 			if f == "away":
 				d = -d
-		"player", "giocatore":
+		"player":
 			if player == null:
 				return null
 			d = player.global_position - node.global_position
@@ -775,13 +774,13 @@ func _anchor_walls(node: Node3D, target_node: Node3D, frame: Transform3D, walls:
 ## Works on world objects and on parts inside a script (World.place(child, {...})).
 func place(node: Node3D, a: Dictionary) -> Dictionary:
 	if node == null or not is_instance_valid(node) or not node.is_inside_tree():
-		return _err("Ancora: oggetto non valido (in uno script, fai prima add_child).")
+		return _err("Anchor: invalid object (in a script, add_child it first).")
 	var target = anchor_target(a.get("to", ""))
 	if target == null:
-		return _err("Ancora: '%s' non trovato. 'to' accetta un id (obj_12), una parte (obj_12/nome_nodo o obj_12/3), \"player\" o [x,y,z]." % str(a.get("to", "")))
+		return _err("Anchor: '%s' not found. 'to' accepts an id (obj_12), a part (obj_12/node_name or obj_12/3), \"player\" or [x,y,z]." % str(a.get("to", "")))
 	var target_node: Node3D = target if target is Node3D else null
 	if target_node and (target_node == node or node.is_ancestor_of(target_node)):
-		return _err("Ancora: un oggetto non si può ancorare a se stesso o a una sua parte.")
+		return _err("Anchor: an object can't be anchored to itself or to one of its parts.")
 	var walls: Array = []
 	var raw_walls = a.get("wall", a.get("walls", []))
 	var wall_list: Array = raw_walls if raw_walls is Array else [raw_walls]
@@ -790,15 +789,15 @@ func place(node: Node3D, a: Dictionary) -> Dictionary:
 		if wn == "":
 			continue
 		if not ANCHOR_SIDES.has(wn) or wn in ["top", "bottom"]:
-			return _err("Ancora: parete '%s' non valida. Usa front, back, left, right, north, south, east, west." % str(w))
+			return _err("Anchor: invalid wall '%s'. Use front, back, left, right, north, south, east, west." % str(w))
 		walls.append(wn)
 	var side := _side_name(a.get("side", "inside" if not walls.is_empty() else "front"))
 	if side != "inside" and not ANCHOR_SIDES.has(side):
-		return _err("Ancora: side '%s' non valido. Usa front, back, left, right, top, bottom, north, south, east, west o inside." % side)
+		return _err("Anchor: invalid side '%s'. Use front, back, left, right, top, bottom, north, south, east, west or inside." % side)
 	if side != "inside" and not walls.is_empty():
-		return _err("Ancora: 'wall' si usa solo con side=inside (contro una parete interna del bersaglio).")
+		return _err("Anchor: 'wall' only works with side=inside (against an inner wall of the target).")
 	if target_node == null and side == "inside" and not walls.is_empty():
-		return _err("Ancora: per 'wall' serve un oggetto come bersaglio (una stanza, un pavimento), non un punto.")
+		return _err("Anchor: 'wall' needs an object as the target (a room, a floor), not a point.")
 	# walls are the target's walls: a compass name means the one that faces most that way
 	var wall_notes := PackedStringArray()
 	if side == "inside" and target_node:
@@ -809,7 +808,7 @@ func place(node: Node3D, a: Dictionary) -> Dictionary:
 			var lv: Vector3 = inv * ANCHOR_SIDES[walls[i]]
 			var rel := ("left" if lv.x > 0 else "right") if absf(lv.x) > absf(lv.z) else ("front" if lv.z > 0 else "back")
 			if absf(absf(lv.x) - absf(lv.z)) > 0.05:
-				wall_notes.append("%s = suo lato %s" % [walls[i], rel])
+				wall_notes.append("%s = its %s side" % [walls[i], rel])
 			walls[i] = rel
 	var align := str(a.get("align", "center")).to_lower()
 	var relative := side == "inside"
@@ -844,7 +843,7 @@ func place(node: Node3D, a: Dictionary) -> Dictionary:
 	if side == "inside" and not walls.is_empty():
 		var touched := _anchor_walls(node, target_node, frame, walls, gap)
 		if touched < walls.size():
-			notes.append("muro vero non trovato su %d lati: usati i bordi del bersaglio" % (walls.size() - touched))
+			notes.append("real wall not found on %d sides: used the edges of the target" % (walls.size() - touched))
 	# rest on what is below (floor, rug, platform) unless lifted on purpose
 	if a.get("snap", true) != false and not side in ["top", "bottom"] and absf(offset.y) < 0.001:
 		var nb := world_aabb(node)
@@ -855,10 +854,10 @@ func place(node: Node3D, a: Dictionary) -> Dictionary:
 		if not hit.is_empty() and absf(hit.position.y - nb.position.y) > 0.005 and absf(hit.position.y - nb.position.y) < 1.0:
 			node.global_position.y += hit.position.y - nb.position.y
 	var box := world_aabb(node)
-	var where := "%s di %s" % [side if side != "inside" else "dentro", _anchor_label(a.get("to", ""))]
+	var where := "%s %s" % [side + " of" if side != "inside" else "inside", _anchor_label(a.get("to", ""))]
 	if not walls.is_empty():
-		where += " contro la parete " + "+".join(PackedStringArray(walls))
-	var txt := "ancorato %s: posizione %s, rotazione %d°, ingombro da %s a %s" % [where, _v(node.global_position), roundi(rad_to_deg(_yaw_of(node))), _v(box.position), _v(box.end)]
+		where += " against the wall " + "+".join(PackedStringArray(walls))
+	var txt := "anchored %s: position %s, rotation %d°, footprint from %s to %s" % [where, _v(node.global_position), roundi(rad_to_deg(_yaw_of(node))), _v(box.position), _v(box.end)]
 	if not notes.is_empty():
 		txt += " (" + "; ".join(notes) + ")"
 	return _ok(txt)
@@ -882,8 +881,8 @@ func _anchor_new(r: Dictionary, id: String, args: Dictionary) -> Dictionary:
 	var p := place(n, args["anchor"])
 	if not p.ok:
 		n.queue_free()
-		return _err("Non creato. " + p.text)
-	r["text"] = str(r.text) + " Poi " + p.text + "."
+		return _err("Not created. " + p.text)
+	r["text"] = str(r.text) + " Then " + p.text + "."
 	return r
 
 
@@ -892,10 +891,10 @@ func place_object(args: Dictionary) -> Dictionary:
 	var id := str(args.get("id", ""))
 	var n = _get_entity(id)
 	if n == null:
-		return _err("Oggetto '%s' non trovato." % id)
+		return _err("Object '%s' not found." % id)
 	var a = args.get("anchor", args)
 	if not a is Dictionary:
-		return _err("anchor deve essere un oggetto {to, side, ...}.")
+		return _err("anchor must be an object {to, side, ...}.")
 	var p := place(n, a)
 	if p.ok:
 		p["text"] = "%s %s." % [id, p.text]
@@ -928,7 +927,7 @@ func _part_name(n: Node3D, owner_id: String, index: int) -> String:
 		return '%s "%s"' % [n.get_meta("id"), n.get_meta("label")]
 	else:
 		label = str(n.name).trim_prefix("@").get_slice("@", 0)
-	return "%s parte %d (%s)" % [owner_id, index, label]
+	return "%s part %d (%s)" % [owner_id, index, label]
 
 
 func _rids(n: Node, out: Array) -> Array:
@@ -979,17 +978,17 @@ func placement_report(id: String) -> String:
 				continue
 			var inter := _oriented_overlap(a, other[0])
 			if inter.x > 0.1 and inter.y > 0.1 and inter.z > 0.1:
-				issues.append("%s compenetra %s (sovrapposizione %.2f x %.2f x %.2f m)" % [aname, other[2], inter.x, inter.y, inter.z])
+				issues.append("%s interpenetrates %s (overlap %.2f x %.2f x %.2f m)" % [aname, other[2], inter.x, inter.y, inter.z])
 		# floating
 		var bottom := Vector3(ab.get_center().x, ab.position.y, ab.get_center().z)
 		var gy := _surface_below(bottom + Vector3.UP * 0.05 - Vector3.UP * 0.6, _rids(a, []))
 		if gy != INF and ab.position.y - gy > 0.12 and ab.size.y > 0.25:
-			issues.append("%s fluttua %.2f m sopra la superficie sotto (se non è voluto, abbassalo a y=%.2f)" % [aname, ab.position.y - gy, gy])
+			issues.append("%s floats %.2f m above the surface below (if that's not intended, lower it to y=%.2f)" % [aname, ab.position.y - gy, gy])
 		if issues.size() >= 12:
 			break
 	if issues.is_empty():
-		return "Controllo posizionamento di %s: nessuna compenetrazione o oggetto sospeso." % id
-	return "Controllo posizionamento di %s, %d problemi:\n- %s" % [id, issues.size(), "\n- ".join(issues.slice(0, 12))]
+		return "Placement check of %s: no interpenetrations or floating pieces." % id
+	return "Placement check of %s, %d problems:\n- %s" % [id, issues.size(), "\n- ".join(issues.slice(0, 12))]
 
 
 ## How much two pieces overlap, measured along their own orientations: a wall turned by 30
@@ -1054,20 +1053,20 @@ func measure(args: Dictionary) -> Dictionary:
 	var id := str(args.get("id", ""))
 	var n = _get_entity(id)
 	if n == null:
-		return _err("Oggetto '%s' non trovato." % id)
+		return _err("Object '%s' not found." % id)
 	var box := world_aabb(n)
 	var lines := PackedStringArray()
 	lines.append('%s "%s"' % [id, n.get_meta("label")])
-	lines.append("bounding box: da %s a %s, dimensioni %s, centro %s" % [_v(box.position), _v(box.end), _v(box.size), _v(box.get_center())])
+	lines.append("bounding box: from %s to %s, size %s, center %s" % [_v(box.position), _v(box.end), _v(box.size), _v(box.get_center())])
 	var bottom := box.position.y
 	if absf(bottom) <= 0.05:
-		lines.append("base: appoggiata al terreno (y=%.2f)" % bottom)
+		lines.append("base: resting on the ground (y=%.2f)" % bottom)
 	elif bottom > 0.05:
-		lines.append("base: a %.2f m sopra il terreno (fluttua, a meno che non poggi su un altro oggetto)" % bottom)
+		lines.append("base: %.2f m above the ground (floating, unless it rests on another object)" % bottom)
 	else:
-		lines.append("base: %.2f m SOTTO il terreno (in parte interrata)" % -bottom)
-	lines.append("collisioni: %s" % ("sì, è solida" if _has_collision(n) else "NO, il giocatore la attraversa"))
-	lines.append("nodi: %d" % _count_nodes(n))
+		lines.append("base: %.2f m BELOW the ground (partly buried)" % -bottom)
+	lines.append("collisions: %s" % ("yes, it is solid" if _has_collision(n) else "NO, the player walks through it"))
+	lines.append("nodes: %d" % _count_nodes(n))
 	var overlaps := PackedStringArray()
 	for other_id in entities:
 		if other_id == id:
@@ -1080,8 +1079,8 @@ func measure(args: Dictionary) -> Dictionary:
 			var inter := box.intersection(ob)
 			var vol := inter.size.x * inter.size.y * inter.size.z
 			if vol > 0.01:
-				overlaps.append('%s "%s" (%.2f m³ in comune)' % [other_id, o.get_meta("label"), vol])
-	lines.append("si sovrappone con: " + (", ".join(overlaps.slice(0, 10)) if not overlaps.is_empty() else "niente"))
+				overlaps.append('%s "%s" (%.2f m³ shared)' % [other_id, o.get_meta("label"), vol])
+	lines.append("overlaps with: " + (", ".join(overlaps.slice(0, 10)) if not overlaps.is_empty() else "nothing"))
 	return _ok("\n".join(lines))
 
 
@@ -1093,31 +1092,31 @@ func edit_script(args: Dictionary, author: String) -> Dictionary:
 	var id := str(args.get("id", ""))
 	var n = _get_entity(id)
 	if n == null:
-		return _err("Oggetto '%s' non trovato." % id)
+		return _err("Object '%s' not found." % id)
 	var old_text := str(args.get("old", ""))
 	var new_text := str(args.get("new", ""))
 	if old_text == "":
-		return _err("'old' è vuoto.")
+		return _err("'old' is empty.")
 	var behaviors := _behaviors(n)
 	var which := str(args.get("target", "script"))
 	var code: String
 	var beh_index := -1
 	if which == "script":
 		if n.get_meta("kind") != "script":
-			return _err("%s è una primitiva senza script: usa modify_object, oppure target=\"behavior\" se ha un comportamento." % id)
+			return _err("%s is a primitive with no script: use modify_object, or target=\"behavior\" if it has a behavior." % id)
 		code = n.get_meta("code")
 	else:
 		beh_index = int(args.get("behavior_index", 0))
 		if beh_index < 0 or beh_index >= behaviors.size():
-			return _err("%s ha %d comportamenti: behavior_index %d non esiste." % [id, behaviors.size(), beh_index])
+			return _err("%s has %d behaviors: behavior_index %d doesn't exist." % [id, behaviors.size(), beh_index])
 		code = behaviors[beh_index].get_meta("code")
 	var count := code.count(old_text)
 	if count != 1:
-		return _err("Il testo 'old' compare %d volte nel codice (deve comparire esattamente 1 volta). Usa inspect_object per vedere il codice esatto." % count)
+		return _err("The 'old' text appears %d times in the code (it must appear exactly once). Use inspect_object to see the exact code." % count)
 	var new_code := code.replace(old_text, new_text)
 	var c := _compile(new_code, id + "_edit")
 	if not c.ok:
-		return _err("Modifica NON applicata, il codice nuovo non compila:\n" + c.text.get_slice("\n", 1))
+		return _err("Change NOT applied, the new code doesn't compile:\n" + c.text.get_slice("\n", 1))
 
 	if which == "script":
 		var beh_codes := behaviors.map(func(bh): return bh.get_meta("code"))
@@ -1139,7 +1138,7 @@ func edit_script(args: Dictionary, author: String) -> Dictionary:
 		nn.scale = scale
 		for bc in beh_codes:
 			attach_script({"id": id, "code": bc, "replace": false}, author)
-		return _ok("Script di %s modificato e ricaricato. %s" % [id, r.text.get_slice("\n", 1) if r.text.contains("\n") else ""])
+		return _ok("Script of %s changed and reloaded. %s" % [id, r.text.get_slice("\n", 1) if r.text.contains("\n") else ""])
 	var codes := behaviors.map(func(bh): return bh.get_meta("code"))
 	codes[beh_index] = new_code
 	for bh in behaviors:
@@ -1150,30 +1149,30 @@ func edit_script(args: Dictionary, author: String) -> Dictionary:
 		var r2 := attach_script({"id": id, "code": bc, "replace": false}, author)
 		if r2.text.contains("\n"):
 			report += r2.text.substr(r2.text.find("\n"))
-	return _ok("Comportamento %d di %s modificato e ricaricato.%s" % [beh_index, id, report])
+	return _ok("Behavior %d of %s changed and reloaded.%s" % [beh_index, id, report])
 
 
 # ---------------------------------------------------------------- perception
 
 func _entity_line(n: Node3D) -> String:
 	var kind: String = n.get_meta("kind")
-	var s := '%s "%s" [%s, autore=%s] pos %s' % [n.get_meta("id"), n.get_meta("label"), kind, n.get_meta("author"), _v(n.global_position)]
+	var s := '%s "%s" [%s, author=%s] pos %s' % [n.get_meta("id"), n.get_meta("label"), kind, n.get_meta("author"), _v(n.global_position)]
 	if kind == "primitive":
 		var col: Color = n.get_meta("color")
 		s += " shape=%s size=%s color=#%s physics=%s" % [n.get_meta("shape"), _v(n.get_meta("size")), col.to_html(col.a < 0.999), n.get_meta("physics")]
 		if n.get_meta("emissive"):
 			s += " emissive"
 	elif kind == "asset":
-		s += " modello=%s ingombro=%s" % [n.get_meta("asset"), _v(world_aabb(n).size)]
+		s += " model=%s footprint=%s" % [n.get_meta("asset"), _v(world_aabb(n).size)]
 	elif n.has_meta("code"):
-		s += " script(%d righe)" % (str(n.get_meta("code")).count("\n") + 1)
+		s += " script(%d lines)" % (str(n.get_meta("code")).count("\n") + 1)
 	if n.rotation_degrees.length() > 0.01:
 		s += " rot=%s" % _v(n.rotation_degrees)
 	if not n.scale.is_equal_approx(Vector3.ONE):
 		s += " scale=%s" % _v(n.scale)
 	var bc := _behaviors(n).size()
 	if bc > 0:
-		s += " +%d comportamento" % bc
+		s += " +%d behavior" % bc
 	return s
 
 
@@ -1182,34 +1181,34 @@ func describe(viewer := "", max_items := 60) -> String:
 	var ref := Vector3.ZERO
 	if player:
 		ref = player.global_position
-		lines.append("Giocatore: pos %s, %s, guarda verso %s, sta mirando: %s" % [_v(ref), player.activity_desc(), _v(player.get_forward()), player.looking_desc()])
+		lines.append("Player: pos %s, %s, looking toward %s, aiming at: %s" % [_v(ref), player.activity_desc(), _v(player.get_forward()), player.looking_desc()])
 	for agent_name in agents:
 		var body = agents[agent_name]
 		if not is_instance_valid(body):
 			continue
 		if agent_name == viewer:
-			lines.append("Tu (%s): pos %s" % [agent_name, _v(body.global_position)])
+			lines.append("You (%s): pos %s" % [agent_name, _v(body.global_position)])
 		else:
-			lines.append("Agente %s: pos %s, %s" % [agent_name, _v(body.global_position), body.status_desc()])
+			lines.append("Agent %s: pos %s, %s" % [agent_name, _v(body.global_position), body.status_desc()])
 	var items: Array = entities.values().filter(func(n): return is_instance_valid(n) and n.is_inside_tree())
 	items.sort_custom(func(a, b): return a.global_position.distance_squared_to(ref) < b.global_position.distance_squared_to(ref))
-	lines.append("Oggetti nel mondo: %d (max %d)%s" % [items.size(), MAX_ENTITIES, ", dal più vicino al giocatore:" if items.size() > 0 else ""])
+	lines.append("Objects in the world: %d (max %d)%s" % [items.size(), MAX_ENTITIES, ", nearest to the player first:" if items.size() > 0 else ""])
 	for i in min(items.size(), max_items):
 		lines.append("- " + _entity_line(items[i]))
 	if items.size() > max_items:
-		lines.append("... e altri %d oggetti più lontani" % (items.size() - max_items))
+		lines.append("... and %d more objects farther away" % (items.size() - max_items))
 	if environment:
-		lines.append("Ambiente: " + environment.describe())
-	lines.append("Libreria modelli della squadra: %d (elenco nel prompt; design_model per crearne di nuovi)" % Assets.catalog.size())
+		lines.append("Environment: " + environment.describe())
+	lines.append("Team model library: %d (list in the prompt; design_model to create new ones)" % Assets.catalog.size())
 	var bps := list_blueprints()
 	if not bps.is_empty():
 		var names := PackedStringArray()
 		for bp in bps.slice(0, 25):
 			names.append("%s (%s m%s)" % [bp.name, _v(bp.size), (": " + bp.description.left(60)) if bp.description != "" else ""])
-		lines.append("Blueprint disponibili: " + "; ".join(names))
-	lines.append("Lavagna condivisa:")
+		lines.append("Available blueprints: " + "; ".join(names))
+	lines.append("Shared board:")
 	if board.is_empty():
-		lines.append("  (vuota)")
+		lines.append("  (empty)")
 	for agent_name in board:
 		lines.append("  [%s] %s" % [agent_name, str(board[agent_name]).replace("\n", "\n    ")])
 	var events: Array = _notices + _logger.take()
@@ -1221,7 +1220,7 @@ func describe(viewer := "", max_items := 60) -> String:
 			if not counts.has(e):
 				order.append(e)
 			counts[e] = counts.get(e, 0) + 1
-		lines.append("Errori/output recenti degli script:")
+		lines.append("Recent script errors/output:")
 		for e in order.slice(max(0, order.size() - 15)):
 			lines.append("  " + str(e) + ("  (x%d)" % counts[e] if counts[e] > 1 else ""))
 	return "\n".join(lines)
@@ -1285,7 +1284,7 @@ func spawn_from_data(e: Dictionary, author: String, forced_id := "") -> Dictiona
 			problems.append(br.text.get_slice("\n", 0))
 	r["id"] = id
 	if not problems.is_empty():
-		r["text"] += " Problemi nei comportamenti: " + "; ".join(problems)
+		r["text"] += " Problems in the behaviors: " + "; ".join(problems)
 	return r
 
 
@@ -1335,14 +1334,14 @@ func deserialize(data: Dictionary) -> Array:
 		var kinds := {}
 		for m in missing:
 			kinds[m.get_slice("/", 1) if "/" in m else m] = true
-		problems.push_front("%d oggetti saltati perché il loro modello non c'è nella libreria (%s)" % [missing.size(), ", ".join(PackedStringArray(kinds.keys().slice(0, 6))) + ("…" if kinds.size() > 6 else "")])
+		problems.push_front("%d objects skipped because their model is not in the library (%s)" % [missing.size(), ", ".join(PackedStringArray(kinds.keys().slice(0, 6))) + ("…" if kinds.size() > 6 else "")])
 	return problems
 
 
 func duplicate_entity(id: String, author: String, offset := Vector3(1.5, 0, 1.5)) -> Dictionary:
 	var n = _get_entity(id)
 	if n == null:
-		return _err("Oggetto '%s' non trovato." % id)
+		return _err("Object '%s' not found." % id)
 	var e := entity_data(n)
 	e["position"] = _arr(n.position + offset)
 	return spawn_from_data(e, author)
@@ -1361,10 +1360,10 @@ func save_blueprint(args: Dictionary, author: String) -> Dictionary:
 	var id := str(args.get("id", ""))
 	var n = _get_entity(id)
 	if n == null:
-		return _err("Oggetto '%s' non trovato." % id)
+		return _err("Object '%s' not found." % id)
 	var bp_name := _bp_name(str(args.get("name", "")))
 	if bp_name == "":
-		return _err("Serve un nome per il blueprint.")
+		return _err("The blueprint needs a name.")
 	var e := entity_data(n)
 	e.erase("position")
 	e["blueprint"] = bp_name
@@ -1374,20 +1373,20 @@ func save_blueprint(args: Dictionary, author: String) -> Dictionary:
 	var err := save_json(BLUEPRINT_DIR + bp_name + ".json", e)
 	if err != "":
 		return _err(err)
-	return _ok("Blueprint '%s' salvato (ingombro %s m). Si piazza con spawn_blueprint." % [bp_name, _v(world_aabb(n).size)])
+	return _ok("Blueprint '%s' saved (footprint %s m). Place it with spawn_blueprint." % [bp_name, _v(world_aabb(n).size)])
 
 
 func spawn_blueprint(args: Dictionary, author: String) -> Dictionary:
-	var bp_name := _bp_name(str(args.get("name", "")))
+	var bp_name := Legacy.blueprint(_bp_name(str(args.get("name", ""))))
 	var e = load_json(BLUEPRINT_DIR + bp_name + ".json")
 	if e == null:
-		return _err("Blueprint '%s' non trovato. Disponibili: %s" % [bp_name, ", ".join(PackedStringArray(list_blueprints().map(func(b): return b.name)))])
+		return _err("Blueprint '%s' not found. Available: %s" % [bp_name, ", ".join(PackedStringArray(list_blueprints().map(func(b): return b.name)))])
 	e["position"] = args.get("position", [0, 0, 0])
 	if args.has("rotation_deg"):
 		e["rotation_deg"] = args["rotation_deg"]
 	var r := spawn_from_data(e, author)
 	if r.ok:
-		r["text"] = "Piazzato il blueprint '%s' come %s in %s." % [bp_name, r.id, _v(vec3(e["position"]))]
+		r["text"] = "Placed the blueprint '%s' as %s at %s." % [bp_name, r.id, _v(vec3(e["position"]))]
 		r = _anchor_new(r, r.id, args)
 	return r
 
@@ -1408,7 +1407,7 @@ func save_json(path: String, data: Dictionary) -> String:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(path.get_base_dir()))
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
-		return "Impossibile scrivere %s (errore %d)" % [path, FileAccess.get_open_error()]
+		return "Can't write %s (error %d)" % [path, FileAccess.get_open_error()]
 	f.store_string(JSON.stringify(data, "\t"))
 	f.close()
 	return ""

@@ -6,9 +6,9 @@ var _out := PackedStringArray()
 
 const ROOM := """extends Node3D
 func _ready():
-	add_child(Shapes.box(Vector3(8, 0.1, 6), "legno_chiaro"))
+	add_child(Shapes.box(Vector3(8, 0.1, 6), "light_wood"))
 	for w in [[8.0, Vector3(0, 0.1, -3), 0.0], [8.0, Vector3(0, 0.1, 3), 0.0], [6.0, Vector3(-4, 0.1, 0), PI / 2], [6.0, Vector3(4, 0.1, 0), PI / 2]]:
-		var wall := Shapes.wall(w[0], 2.6, 0.2, [], "intonaco")
+		var wall := Shapes.wall(w[0], 2.6, 0.2, [], "plaster")
 		wall.position = w[1]
 		wall.rotation.y = w[2]
 		add_child(wall)
@@ -39,12 +39,12 @@ func _ready() -> void:
 	team.autonomy = false
 	player.set_process_unhandled_input(false)
 	player.global_position = Vector3(0, 0.2, 9)
-	env.set_values({"time_of_day": 13.0, "ground": "prato"})
+	env.set_values({"time_of_day": 13.0, "ground": "grass"})
 	await get_tree().create_timer(0.3).timeout
-	var b = team.find_brain("Decoratore")
-	var room: Dictionary = await b._exec_tool("run_script", {"code": ROOM, "position": [0, 0, 0], "name": "stanza"})
+	var b = team.find_brain("Decorator")
+	var room: Dictionary = await b._exec_tool("run_script", {"code": ROOM, "position": [0, 0, 0], "name": "room"})
 	_out.append("ROOM: " + room.text)
-	var furn: Dictionary = await b._exec_tool("run_script", {"code": FURNITURE_WITH_MISTAKES, "position": [0, 0, 0], "name": "arredi sbagliati"})
+	var furn: Dictionary = await b._exec_tool("run_script", {"code": FURNITURE_WITH_MISTAKES, "position": [0, 0, 0], "name": "misplaced furniture"})
 	_out.append("FURNITURE: " + furn.text)
 	var furn_id: String = furn.text.get_slice(" ", 1)
 

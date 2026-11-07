@@ -12,7 +12,7 @@ func _snap(label: String) -> void:
 
 
 func arch_restore():
-	return team.find_brain("Architetto")
+	return team.find_brain("Architect")
 
 
 func _ready() -> void:
@@ -24,13 +24,13 @@ func _ready() -> void:
 	team.autonomy = false
 	player.set_process_unhandled_input(false)
 	await get_tree().create_timer(0.5).timeout
-	team.find_brain("Scultore").status_text = "modella..."
+	team.find_brain("Sculptor").status_text = "modeling..."
 	await get_tree().create_timer(0.3).timeout
 	await _snap("hud")
 	var m = ui.menu
 	var cfg := ConfigFile.new()
 	cfg.load("user://settings.cfg")
-	var saved_looks = cfg.get_value("looks", "Architetto", null) if cfg.has_section_key("looks", "Architetto") else null
+	var saved_looks = cfg.get_value("looks", "Architect", null) if cfg.has_section_key("looks", "Architect") else null
 	m.open()
 	await _snap("menu_settings")
 	var tabs: TabContainer = m.find_children("*", "TabContainer", true, false)[0]
@@ -38,32 +38,32 @@ func _ready() -> void:
 	await _snap("menu_agents")
 	# a new NPC through the form
 	m._open_form("")
-	m._f_name.text = "Oste"
+	m._f_name.text = "Innkeeper"
 	m._f_kind.select(1)
 	m._f_kind.item_selected.emit(1)
-	m._f_role.text = "L'oste della taverna: burbero ma generoso, conosce tutti i pettegolezzi."
-	m._pick(m._f_hat, "cuoco")
-	m._pick(m._f_hair_style, "lunghi")
+	m._f_role.text = "The tavern's innkeeper: gruff but generous, knows all the gossip."
+	m._pick(m._f_hat, "chef")
+	m._pick(m._f_hair_style, "long")
 	m._f_height.value = 1.1
 	await _snap("menu_form")
 	m._save_form()
-	var oste = team.find_brain("Oste")
-	_out.append("oste: %s build=%s model=%s see=%s" % [oste != null, oste.can_build, oste.can_model, oste.can_see])
-	_out.append("oste allows spawn_asset=%s say=%s design_model=%s take_photo=%s" % [oste.allows("spawn_asset"), oste.allows("say"), oste.allows("design_model"), oste.allows("take_photo")])
-	_out.append("oste tools sent: %d of %d" % [oste.TOOLS.filter(func(t): return oste.allows(str(t.name))).size(), oste.TOOLS.size()])
-	_out.append("oste prompt has permissions: %s" % ("YOUR PERMISSIONS" in oste.build_system_prompt()))
-	var blocked: Dictionary = await oste._exec_tool("spawn_primitive", {"shape": "box", "position": [0, 0.5, 0]})
-	_out.append("oste spawn: %s" % blocked.text)
-	oste.body.move_to(Vector3(3, 6, 3))
-	_out.append("oste fly: target y=%.2f flying=%s can_fly=%s look=%s" % [oste.body._target.y, oste.body._flying, oste.body.can_fly, oste.body.look])
-	var arch = team.find_brain("Architetto")
-	team.set_look(arch, {"hat": "corona", "hair_style": "cresta", "hair": "#d8d0c8"})
+	var innkeeper = team.find_brain("Innkeeper")
+	_out.append("innkeeper: %s build=%s model=%s see=%s" % [innkeeper != null, innkeeper.can_build, innkeeper.can_model, innkeeper.can_see])
+	_out.append("innkeeper allows spawn_asset=%s say=%s design_model=%s take_photo=%s" % [innkeeper.allows("spawn_asset"), innkeeper.allows("say"), innkeeper.allows("design_model"), innkeeper.allows("take_photo")])
+	_out.append("innkeeper tools sent: %d of %d" % [innkeeper.TOOLS.filter(func(t): return innkeeper.allows(str(t.name))).size(), innkeeper.TOOLS.size()])
+	_out.append("innkeeper prompt has permissions: %s" % ("YOUR PERMISSIONS" in innkeeper.build_system_prompt()))
+	var blocked: Dictionary = await innkeeper._exec_tool("spawn_primitive", {"shape": "box", "position": [0, 0.5, 0]})
+	_out.append("innkeeper spawn: %s" % blocked.text)
+	innkeeper.body.move_to(Vector3(3, 6, 3))
+	_out.append("innkeeper fly: target y=%.2f flying=%s can_fly=%s look=%s" % [innkeeper.body._target.y, innkeeper.body._flying, innkeeper.body.can_fly, innkeeper.body.look])
+	var arch = team.find_brain("Architect")
+	team.set_look(arch, {"hat": "crown", "hair_style": "mohawk", "hair": "#d8d0c8"})
 	_out.append("arch look: %s" % arch.body.full_look())
 	m.close()
-	team.find_brain("Oste").status_text = "passeggia..."
-	oste.body.position = player.global_position + Vector3(-1.2, 0, -3.5)
+	team.find_brain("Innkeeper").status_text = "strolling..."
+	innkeeper.body.position = player.global_position + Vector3(-1.2, 0, -3.5)
 	arch.body.position = player.global_position + Vector3(1.0, 0, -3.5)
-	oste.body._target = oste.body.position
+	innkeeper.body._target = innkeeper.body.position
 	arch.body._target = arch.body.position
 	await get_tree().create_timer(1.0).timeout
 	await _snap("hud_npc")
@@ -71,23 +71,23 @@ func _ready() -> void:
 	pic.save_png(ProjectSettings.globalize_path("res://tests/uitest_looks.png"))
 	m.open()
 	# edit the NPC into a builder with Sonnet
-	m._open_form("Oste")
+	m._open_form("Innkeeper")
 	m._f_kind.select(0)
 	m._f_kind.item_selected.emit(0)
 	m._pick(m._f_model, "claude-sonnet-5-5")
 	m._save_form()
-	oste = team.find_brain("Oste")
-	_out.append("oste after edit: build=%s model=%s custom=%s index=%d" % [oste.can_build, oste.model, oste.is_custom, team.brains.find(oste)])
+	innkeeper = team.find_brain("Innkeeper")
+	_out.append("innkeeper after edit: build=%s model=%s custom=%s index=%d" % [innkeeper.can_build, innkeeper.model, innkeeper.is_custom, team.brains.find(innkeeper)])
 	# built-in: hide and change model, but not remove
-	var crit = team.find_brain("Critico")
+	var crit = team.find_brain("Critic")
 	team.set_hidden(crit, true)
-	_out.append("critico hidden: visible=%s in World.agents=%s in team description=%s" % [crit.body.visible, World.agents.has("Critico"), "Critico" in team.describe_team(null)])
-	_out.append("remove builtin: " + team.remove_agent("Critico"))
-	m._open_form("Paesaggista")
+	_out.append("critic hidden: visible=%s in World.agents=%s in team description=%s" % [crit.body.visible, World.agents.has("Critic"), "Critic" in team.describe_team(null)])
+	_out.append("remove builtin: " + team.remove_agent("Critic"))
+	m._open_form("Landscaper")
 	m._pick(m._f_model, "claude-sonnet-5-5")
 	m._save_form()
-	_out.append("paesaggista model: " + team.find_brain("Paesaggista").model)
-	team.set_models(team.find_brain("Paesaggista"), "claude-haiku-5-5", "")   # back to default
+	_out.append("landscaper model: " + team.find_brain("Landscaper").model)
+	team.set_models(team.find_brain("Landscaper"), "claude-haiku-5-5", "")   # back to default
 	var saved: Dictionary = team.serialize()
 	_out.append("save: custom=%s hidden=%s" % [saved.custom.map(func(d): return d.name), saved.hidden])
 	m._refresh_agents()
@@ -101,7 +101,7 @@ func _ready() -> void:
 		await get_tree().process_frame
 		_out.append("menu width tab %d: %d" % [t, tabs.size.x])
 	tabs.current_tab = 1
-	m._open_form("Oste")
+	m._open_form("Innkeeper")
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_out.append("tabs disabled while editing: %s" % [[tabs.is_tab_disabled(0), tabs.is_tab_disabled(1), tabs.is_tab_disabled(2)]])
@@ -110,18 +110,18 @@ func _ready() -> void:
 	_out.append("menu width form: %d" % tabs.size.x)
 	m._close_form()
 	# chat filters
-	ui.add_chat("Azione", "Architetto · run_script → Creato obj_1")
-	ui.add_chat("Pensiero", "Architetto: penso alla casa")
-	ui.add_chat("Architetto → Scultore", "mi serve una panchina")
-	ui.add_chat("Architetto", "Ciao!")
+	ui.add_chat("Action", "Architect · run_script → Created obj_1")
+	ui.add_chat("Thought", "Architect: thinking about the house")
+	ui.add_chat("Architect → Sculptor", "I need a bench")
+	ui.add_chat("Architect", "Hi!")
 	var before: String = ui.chat_log.get_parsed_text()
-	ui.set_chat_filter("azioni", true)
+	ui.set_chat_filter("actions", true)
 	var after: String = ui.chat_log.get_parsed_text()
-	ui.set_chat_filter("azioni", false)
-	_out.append("chat: azioni hidden=%s shown after toggle=%s squadra shown=%s" % [not ("run_script" in before), "run_script" in after, "panchina" in before])
+	ui.set_chat_filter("actions", false)
+	_out.append("chat: actions hidden=%s shown after toggle=%s team shown=%s" % [not ("run_script" in before), "run_script" in after, "bench" in before])
 	team.set_hidden(crit, false)
 	team.set_look(arch_restore(), saved_looks if saved_looks is Dictionary else {})
-	team.remove_agent("Oste")
+	team.remove_agent("Innkeeper")
 	_out.append("=== DONE ===")
 	var f := FileAccess.open("res://tests/uitest_output.txt", FileAccess.WRITE)
 	f.store_string("\n".join(_out))

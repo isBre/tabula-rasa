@@ -7,28 +7,21 @@ extends Node
 ## with collision, and reuses it for every copy.
 
 const DIR := "res://models/"
+const Legacy := preload("res://scripts/legacy.gd")
 const MAX_PARTS := 160
 const MAX_VERTICES := 150000
 const MAX_DEPTH := 3
 const PART_SHAPES := ["box", "cylinder", "cone", "sphere", "lathe", "extrude", "sweep", "tube", "ribbon", "wall", "arch", "roof", "stairs", "fence", "tree", "bush", "rock", "text", "model", "light"]
-const DEFAULT_MAT := {"wall": "intonaco", "roof": "tetto", "tube": "metallo", "bush": "foglie", "rock": "roccia", "stairs": "pietra", "arch": "pietra", "text": "intonaco"}
+const DEFAULT_MAT := {"wall": "plaster", "roof": "roof_tiles", "tube": "metal", "bush": "leaves", "rock": "rock", "stairs": "stone", "arch": "stone", "text": "plaster"}
 
-## A few translations both ways, so "sofa" finds divano_tessuto and "sedia" finds chair_x.
-const IT_EN := {
-	"albero": "tree", "pino": "pine", "sedia": "chair", "tavolo": "table", "letto": "bed", "panchina": "bench",
-	"lampione": "streetlight lamp", "lampada": "lamp light", "casa": "house home", "edificio": "building",
-	"macchina": "car", "auto": "car", "roccia": "rock", "sasso": "stone rock", "pietra": "stone", "fiore": "flower",
-	"barile": "barrel", "botte": "barrel", "cassa": "crate box", "porta": "door", "finestra": "window",
-	"muro": "wall", "recinto": "fence", "staccionata": "fence", "ponte": "bridge", "torre": "tower",
-	"castello": "castle", "mulino": "mill", "pozzo": "well", "carro": "cart wagon", "barca": "boat",
-	"fontana": "fountain", "divano": "sofa couch", "scaffale": "shelf", "libreria": "bookcase", "tappeto": "rug",
-	"pianta": "plant", "vaso": "vase pot", "frigorifero": "fridge refrigerator", "frigo": "fridge",
-	"lavandino": "sink", "armadio": "wardrobe closet", "comodino": "nightstand", "televisore": "tv television",
-	"cucina": "kitchen stove", "forno": "oven", "poltrona": "armchair", "scrivania": "desk", "cespuglio": "bush",
-	"candela": "candle", "torcia": "torch", "scala": "stairs ladder", "colonna": "column pillar", "statua": "statue",
-	"bancone": "counter", "mensola": "shelf", "specchio": "mirror", "water": "toilet", "doccia": "shower",
-	"vasca": "bathtub", "cuscino": "pillow cushion", "bicicletta": "bike bicycle", "insegna": "sign",
-	"cartello": "sign", "bandiera": "flag", "tenda": "tent curtain", "orologio": "clock", "quadro": "painting picture",
+## A few synonyms both ways, so "couch" finds fabric_sofa and "refrigerator" finds retro_fridge.
+const SYNONYMS := {
+	"sofa": "couch settee", "fridge": "refrigerator", "lamp": "light lantern", "streetlight": "lamp post lamppost",
+	"house": "home cottage hut", "car": "auto vehicle", "rock": "stone boulder", "crate": "box", "cart": "wagon",
+	"wardrobe": "closet", "tv": "television", "stove": "cooker oven", "stairs": "ladder steps", "column": "pillar",
+	"pillow": "cushion", "bike": "bicycle", "sign": "signboard", "curtain": "drape", "painting": "picture frame",
+	"bench": "seat", "stall": "booth stand", "bookcase": "bookshelf", "shelf": "rack", "rug": "carpet",
+	"vase": "pot", "toilet": "wc", "bathtub": "tub", "table": "desk", "tree": "pine oak",
 }
 
 var catalog: Array = []     # [{id, description, tags, author, size: Vector3}]
@@ -45,15 +38,15 @@ var _preview_busy := false
 
 
 func _ready() -> void:
-	for it in IT_EN:
-		var en: Array = Array(str(IT_EN[it]).split(" "))
-		if not _search_words.has(it):
-			_search_words[it] = []
-		_search_words[it].append_array(en)
-		for w in en:
+	for word in SYNONYMS:
+		var others: Array = Array(str(SYNONYMS[word]).split(" "))
+		if not _search_words.has(word):
+			_search_words[word] = []
+		_search_words[word].append_array(others)
+		for w in others:
 			if not _search_words.has(w):
 				_search_words[w] = []
-			_search_words[w].append(it)
+			_search_words[w].append(word)
 	_stage = Node3D.new()
 	_stage.name = "ModelStage"
 	_stage.position = Vector3(0, -2000, 0)
@@ -100,11 +93,12 @@ func clean_name(raw: String) -> String:
 
 
 func has(id: String) -> bool:
-	return _recipes.has(id)
+	return _recipes.has(Legacy.model(id))
 
 
 ## {id, description, tags, author, size} with the real size of the built model.
 func info(id: String) -> Dictionary:
+	id = Legacy.model(id)
 	if not _by_id.has(id):
 		return {}
 	var d := _get_built(id)
@@ -113,7 +107,7 @@ func info(id: String) -> Dictionary:
 
 
 func recipe(id: String) -> Dictionary:
-	return _recipes.get(id, {})
+	return _recipes.get(Legacy.model(id), {})
 
 
 ## Saves a recipe as a model (replacing one with the same name) after checking it builds.
@@ -121,26 +115,26 @@ func recipe(id: String) -> Dictionary:
 func save_model(raw_name: String, rec: Dictionary, description: String, author: String, tags := "") -> Dictionary:
 	var id := clean_name(raw_name)
 	if id == "":
-		return {"ok": false, "text": "Serve un nome (lettere, numeri e _), es. divano_tessuto."}
+		return {"ok": false, "text": "A name is needed (letters, numbers and _), e.g. fabric_sofa."}
 	if description.strip_edges() == "":
-		return {"ok": false, "text": "Serve una descrizione di una riga: serve agli altri per trovarlo."}
+		return {"ok": false, "text": "A one-line description is needed: the others use it to find the model."}
 	var r := build(rec)
 	if not r.ok:
-		return {"ok": false, "text": "Non salvato, la ricetta ha errori:\n- " + "\n- ".join(r.errors)}
+		return {"ok": false, "text": "Not saved, the recipe has errors:\n- " + "\n- ".join(r.errors)}
 	var replaced := has(id)
 	var data := {"name": id, "description": description.strip_edges().left(200), "tags": tags, "author": author, "saved": Time.get_datetime_string_from_system(), "parts": rec.get("parts", [])}
 	var f := FileAccess.open(DIR + id + ".json", FileAccess.WRITE)
 	if f == null:
-		return {"ok": false, "text": "Impossibile scrivere il file del modello."}
+		return {"ok": false, "text": "Can't write the model file."}
 	f.store_string(JSON.stringify(data, "\t"))
 	f.close()
 	_register(id, data)
 	_built.clear()   # models made of this one change too
 	var refreshed := refresh_world_copies(id)
 	var size: Vector3 = info(id).size
-	var txt := "%s il modello '%s' (%.2f x %.2f x %.2f m). Usalo con spawn_asset(asset=\"%s\") o Assets.instance(\"%s\", true) negli script." % ["Aggiornato" if replaced else "Salvato", id, size.x, size.y, size.z, id, id]
+	var txt := "%s the model '%s' (%.2f x %.2f x %.2f m). Use it with spawn_asset(asset=\"%s\") or Assets.instance(\"%s\", true) in scripts." % ["Updated" if replaced else "Saved", id, size.x, size.y, size.z, id, id]
 	if refreshed > 0:
-		txt += " Aggiornate %d copie già nel mondo." % refreshed
+		txt += " Updated %d copies already in the world." % refreshed
 	return {"ok": true, "text": txt}
 
 
@@ -176,7 +170,7 @@ func _words(text: String) -> PackedStringArray:
 	var out := PackedStringArray()
 	var cur := ""
 	for ch in (text.to_lower() + " "):
-		if (ch >= "a" and ch <= "z") or (ch >= "0" and ch <= "9") or ch in "àèéìòù":
+		if (ch >= "a" and ch <= "z") or (ch >= "0" and ch <= "9"):
 			cur += ch
 		else:
 			if cur != "":
@@ -188,7 +182,7 @@ func _words(text: String) -> PackedStringArray:
 func search(query: String, limit := 25) -> Array:
 	var q := query.strip_edges().to_lower()
 	if has(clean_name(q)):
-		return [_by_id[clean_name(q)]]
+		return [_by_id[Legacy.model(clean_name(q))]]
 	var words := _words(q)
 	for w in words.duplicate():
 		for extra in _search_words.get(w, []):
@@ -213,20 +207,20 @@ func search(query: String, limit := 25) -> Array:
 
 func describe_entry(e: Dictionary) -> String:
 	var s: Vector3 = info(str(e.id)).get("size", Vector3.ZERO)
-	var by := (", di " + str(e.author)) if str(e.author) != "" else ""
+	var by := (", by " + str(e.author)) if str(e.author) != "" else ""
 	return "%s (%.2f x %.2f x %.2f m%s): %s" % [e.id, s.x, s.y, s.z, by, e.description]
 
 
 func packs_summary() -> String:
 	if catalog.is_empty():
-		return "la libreria è vuota: crea i modelli con design_model e save_model"
-	return "%d modelli: %s" % [catalog.size(), ", ".join(PackedStringArray(catalog.map(func(e): return e.id)))]
+		return "the library is empty: create models with design_model and save_model"
+	return "%d models: %s" % [catalog.size(), ", ".join(PackedStringArray(catalog.map(func(e): return e.id)))]
 
 
 ## What exists, for the agents' system prompt.
 func index_text() -> String:
 	if catalog.is_empty():
-		return "(vuota: ancora nessun modello. Ogni oggetto che vi serve lo progettate voi.)"
+		return "(empty: no models yet. You design every object you need yourselves.)"
 	var lines := PackedStringArray()
 	for e in catalog:
 		lines.append("- " + describe_entry(e))
@@ -247,17 +241,17 @@ func _i(p: Dictionary, key: String, def: int) -> int:
 func _pts(p: Dictionary, key: String, at_least: int) -> Variant:
 	var v = p.get(key)
 	if not v is Array or v.size() < at_least:
-		return "serve \"%s\": una lista di almeno %d punti" % [key, at_least]
+		return "\"%s\" is needed: a list of at least %d points" % [key, at_least]
 	for q in v:
 		if not (q is Array and q.size() >= 2):
-			return "\"%s\": ogni punto è una lista di numeri, es. [0.2, 0.5]" % key
+			return "\"%s\": every point is a list of numbers, e.g. [0.2, 0.5]" % key
 	return v
 
 
 ## One piece of a recipe as a Node3D (meshes only), or an error message.
 func _make_part(p: Dictionary, depth: int) -> Variant:
 	var shape := str(p.get("shape", "")).to_lower()
-	var m: Variant = p.get("mat", p.get("color", DEFAULT_MAT.get(shape, "legno")))
+	var m: Variant = p.get("mat", p.get("color", DEFAULT_MAT.get(shape, "wood")))
 	match shape:
 		"box":
 			return Shapes.box(World.vec3(p.get("size"), Vector3.ONE).clamp(Vector3.ONE * 0.002, Vector3.ONE * 200), m, false)
@@ -305,16 +299,16 @@ func _make_part(p: Dictionary, depth: int) -> Variant:
 			var sz = p.get("size", 1.0)
 			return Shapes.rock(World.vec3(sz) if sz is Array else float(sz), _i(p, "seed", 0), _f(p, "roughness", 0.25), m, false)
 		"text":
-			return Shapes.text(str(p.get("text", "Ciao")), _f(p, "size", 0.5), _f(p, "depth", 0.05), m)
+			return Shapes.text(str(p.get("text", "Hello")), _f(p, "size", 0.5), _f(p, "depth", 0.05), m)
 		"model":
 			var mid := clean_name(str(p.get("model", "")))
 			if not has(mid):
-				return "il modello '%s' non esiste (modelli: %s)" % [mid, ", ".join(PackedStringArray(_recipes.keys()))]
+				return "the model '%s' doesn't exist (models: %s)" % [mid, ", ".join(PackedStringArray(_recipes.keys()))]
 			if depth >= MAX_DEPTH:
-				return "troppi modelli uno dentro l'altro"
+				return "too many models nested inside each other"
 			var d := _get_built(mid, depth + 1)
 			if d.is_empty():
-				return "il modello '%s' ha errori" % mid
+				return "the model '%s' has errors" % mid
 			var holder := Node3D.new()
 			_fill(holder, d, false)
 			if p.has("height") and d.size.y > 0.001:
@@ -326,7 +320,7 @@ func _make_part(p: Dictionary, depth: int) -> Variant:
 			l.light_energy = _f(p, "energy", 1.5)
 			l.omni_range = _f(p, "range", 6.0)
 			return l
-	return "shape '%s' sconosciuta. Forme: %s" % [shape, ", ".join(PackedStringArray(PART_SHAPES))]
+	return "unknown shape '%s'. Shapes: %s" % [shape, ", ".join(PackedStringArray(PART_SHAPES))]
 
 
 ## Like Shapes.wall but made of plain blocks around the openings (CSG can't be merged
@@ -386,7 +380,7 @@ func build(rec: Dictionary, depth := 0) -> Dictionary:
 	var warnings := PackedStringArray()
 	var parts_in = rec.get("parts", [])
 	if not parts_in is Array or parts_in.is_empty():
-		return {"ok": false, "errors": ["servono dei pezzi: {\"parts\": [{\"shape\": \"box\", \"size\": [1, 1, 1]}, ...]}"]}
+		return {"ok": false, "errors": ["parts are needed: {\"parts\": [{\"shape\": \"box\", \"size\": [1, 1, 1]}, ...]}"]}
 	var holder := Node3D.new()
 	_stage.add_child(holder)
 	var named := {}
@@ -398,22 +392,22 @@ func build(rec: Dictionary, depth := 0) -> Dictionary:
 	for i in parts_in.size():
 		var p = parts_in[i]
 		if not p is Dictionary:
-			errors.append("pezzo %d: deve essere un oggetto {...}" % (i + 1))
+			errors.append("part %d: must be an object {...}" % (i + 1))
 			continue
-		var pid := str(p.get("id", "pezzo%d" % (i + 1)))
+		var pid := str(p.get("id", "part%d" % (i + 1)))
 		var mat = p.get("mat", p.get("color"))
 		var shp := str(p.get("shape", "")).to_lower()
-		if mat is String and not Shapes.PALETTE.has(mat) and not Color.html_is_valid(mat):
-			warnings.append("pezzo '%s': materiale '%s' sconosciuto (grigio). Usa un nome della palette o \"#rrggbb\"" % [pid, mat])
+		if mat is String and not Shapes.PALETTE.has(Legacy.palette(mat)) and not Color.html_is_valid(mat):
+			warnings.append("part '%s': unknown material '%s' (gray). Use a palette name or \"#rrggbb\"" % [pid, mat])
 		if not shp in ["light", "model", "tree"]:
-			var mkey := str(mat) if mat != null else str(DEFAULT_MAT.get(shp, "legno"))
+			var mkey := Legacy.palette(str(mat)) if mat != null else str(DEFAULT_MAT.get(shp, "wood"))
 			mats[mkey] = true
-			if mat is String and not Shapes.PALETTE.has(mat) and Color.html_is_valid(mat):
+			if mat is String and not Shapes.PALETTE.has(Legacy.palette(mat)) and Color.html_is_valid(mat):
 				off_palette[mat] = pid
 		if shp in ["cylinder", "cone", "lathe", "tube"] and _i(p, "sides", 0) > 16:
-			smooth.append("'%s' ha %d lati (bastano 6-12)" % [pid, _i(p, "sides", 0)])
+			smooth.append("'%s' has %d sides (6-12 are enough)" % [pid, _i(p, "sides", 0)])
 		if shp == "sphere" and _i(p, "detail", 3) > 4:
-			smooth.append("'%s' è una sfera con dettaglio %d (bastano 1-3)" % [pid, _i(p, "detail", 3)])
+			smooth.append("'%s' is a sphere with detail %d (1-3 is enough)" % [pid, _i(p, "detail", 3)])
 		var spots: Array = []
 		if p.get("positions") is Array:
 			for q in p["positions"]:
@@ -427,11 +421,11 @@ func build(rec: Dictionary, depth := 0) -> Dictionary:
 		var shift := Vector3.ZERO
 		for k in spots.size():
 			if count >= MAX_PARTS:
-				errors.append("troppi pezzi (massimo %d)" % MAX_PARTS)
+				errors.append("too many parts (at most %d)" % MAX_PARTS)
 				break
 			var made = _make_part(p, depth)
 			if made is String:
-				errors.append("pezzo '%s': %s" % [pid, made])
+				errors.append("part '%s': %s" % [pid, made])
 				break
 			var n: Node3D = made
 			holder.add_child(n)
@@ -442,7 +436,7 @@ func build(rec: Dictionary, depth := 0) -> Dictionary:
 				var a: Dictionary = p["anchor"].duplicate()
 				var to := str(a.get("to", ""))
 				if not named.has(to):
-					errors.append("pezzo '%s': anchor.to '%s' non è un pezzo definito prima (pezzi: %s)" % [pid, to, ", ".join(PackedStringArray(named.keys()))])
+					errors.append("part '%s': anchor.to '%s' is not a part defined earlier (parts: %s)" % [pid, to, ", ".join(PackedStringArray(named.keys()))])
 				else:
 					a["to"] = named[to]
 					if not a.has("snap"):
@@ -450,7 +444,7 @@ func build(rec: Dictionary, depth := 0) -> Dictionary:
 					var before := n.position
 					var r: Dictionary = World.place(n, a)
 					if not r.ok:
-						errors.append("pezzo '%s': %s" % [pid, r.text])
+						errors.append("part '%s': %s" % [pid, r.text])
 					shift = n.position - before   # copies keep the same spacing from the first one
 			made_nodes.append(n)
 			count += 1
@@ -489,31 +483,31 @@ func build(rec: Dictionary, depth := 0) -> Dictionary:
 		boxes.append([pc[0], b, pc[1] is OmniLight3D])
 	holder.queue_free()
 	if baked.vertices == 0:
-		return {"ok": false, "errors": ["nessuna geometria: controlla misure e poligoni (lati che si incrociano?)"], "warnings": warnings}
+		return {"ok": false, "errors": ["no geometry: check sizes and polygons (crossing edges?)"], "warnings": warnings}
 	if baked.vertices > MAX_VERTICES:
-		return {"ok": false, "errors": ["troppo dettagliato: %d vertici (massimo %d). Meno pezzi o meno lati" % [baked.vertices, MAX_VERTICES]], "warnings": warnings}
+		return {"ok": false, "errors": ["too detailed: %d vertices (at most %d). Fewer parts or fewer sides" % [baked.vertices, MAX_VERTICES]], "warnings": warnings}
 	for bx in boxes:
 		if not bx[2] and bx[1].size.length() < 0.001:
-			warnings.append("pezzo '%s': nessuna geometria (poligono o profilo non valido?)" % bx[0])
+			warnings.append("part '%s': no geometry (invalid polygon or profile?)" % bx[0])
 	# style: advice, never a block
 	var style := PackedStringArray()
 	for hex in off_palette:
 		var near: Array = Shapes.nearest(Color(hex))
-		style.append("%s (pezzo '%s') non è nella palette: il più vicino è '%s' (%s). Se serve davvero e lo userete ancora, add_color" % [hex, off_palette[hex], near[0], Shapes.PALETTE[near[0]].color])
+		style.append("%s (part '%s') is not in the palette: the closest is '%s' (%s). If you really need it and will use it again, add_color" % [hex, off_palette[hex], near[0], Shapes.PALETTE[near[0]].color])
 	if mats.size() > 5:
-		style.append("%d colori diversi: per lo stile ne bastano 2-4 (%s)" % [mats.size(), ", ".join(PackedStringArray(mats.keys()))])
+		style.append("%d different colors: 2-4 are enough for the style (%s)" % [mats.size(), ", ".join(PackedStringArray(mats.keys()))])
 	for sm in smooth:
-		style.append("troppo liscio per il low-poly: " + sm)
+		style.append("too smooth for low-poly: " + sm)
 	var thin := PackedStringArray()
 	for bx in boxes:
 		var sz: Vector3 = bx[1].size
 		if not bx[2] and sz.length() > 0.001 and minf(sz.x, minf(sz.y, sz.z)) < 0.01:
 			thin.append(bx[0])
 	if not thin.is_empty():
-		style.append("pezzi più sottili di 1 cm (spariscono da lontano): " + ", ".join(thin.slice(0, 6)))
+		style.append("parts thinner than 1 cm (they vanish from afar): " + ", ".join(thin.slice(0, 6)))
 	var big := maxf(baked.size.x, maxf(baked.size.y, baked.size.z))
 	if baked.vertices > 1500 * maxf(big, 1.0):
-		style.append("molto dettagliato per le sue dimensioni (%d vertici per %.1f m): semplifica" % [baked.vertices, big])
+		style.append("very detailed for its size (%d vertices for %.1f m): simplify" % [baked.vertices, big])
 	return {"ok": true, "errors": errors, "warnings": warnings, "data": baked, "pieces": boxes, "style": style}
 
 
@@ -600,6 +594,7 @@ func _bake(holder: Node3D) -> Dictionary:
 
 
 func _get_built(id: String, depth := 0) -> Dictionary:
+	id = Legacy.model(id)
 	if _built.has(id):
 		return _built[id]
 	if not _recipes.has(id):
@@ -608,7 +603,7 @@ func _get_built(id: String, depth := 0) -> Dictionary:
 	var r := build(_recipes[id], depth)
 	_built[id] = r.data if r.ok else {}
 	if not r.ok:
-		push_warning("Modello '%s' con errori: %s" % [id, "; ".join(r.errors)])
+		push_warning("Model '%s' has errors: %s" % [id, "; ".join(r.errors)])
 	return _built[id]
 
 
@@ -636,10 +631,11 @@ func _fill(root: Node3D, d: Dictionary, solid: bool) -> void:
 ## solid = true adds collision.
 func instance(id: String, solid := false) -> Node3D:
 	var root: Node3D = StaticBody3D.new() if solid else Node3D.new()
+	id = Legacy.model(id)
 	root.set_meta("asset", id)
 	var d := _get_built(id)
 	if d.is_empty():
-		push_error("Assets: modello '%s' non trovato o con errori (usa search_assets)" % id)
+		push_error("Assets: model '%s' not found or has errors (use search_assets)" % id)
 	_fill(root, d, solid)
 	return root
 
@@ -666,9 +662,9 @@ func measure_model(id: String) -> AABB:
 func design(rec: Dictionary) -> Dictionary:
 	var r := build(rec)
 	if not r.ok:
-		var t := "Il modello non si costruisce:\n- " + "\n- ".join(r.errors)
+		var t := "The model doesn't build:\n- " + "\n- ".join(r.errors)
 		if not r.get("warnings", []).is_empty():
-			t += "\nAvvisi:\n- " + "\n- ".join(r.warnings)
+			t += "\nWarnings:\n- " + "\n- ".join(r.warnings)
 		return {"ok": false, "text": t}
 	var d: Dictionary = r.data
 	var node := Node3D.new()
@@ -676,8 +672,8 @@ func design(rec: Dictionary) -> Dictionary:
 	var sheet := await views(node)
 	node.free()
 	var lines := PackedStringArray()
-	lines.append("Modello costruito: %.2f x %.2f x %.2f m (larghezza X, altezza Y, profondità Z), %d pezzi, %d vertici. Origine al centro della base, fronte verso +Z." % [d.size.x, d.size.y, d.size.z, r.pieces.size(), d.vertices])
-	lines.append("Viste: in alto a sinistra FRONTE (da +Z), in alto a destra LATO (da +X), in basso a sinistra RETRO 3/4 dall'alto (da -X -Z), in basso a destra DALL'ALTO (+Z in basso).")
+	lines.append("Model built: %.2f x %.2f x %.2f m (width X, height Y, depth Z), %d parts, %d vertices. Origin at the center of the base, front toward +Z." % [d.size.x, d.size.y, d.size.z, r.pieces.size(), d.vertices])
+	lines.append("Views: top left FRONT (from +Z), top right SIDE (from +X), bottom left BACK 3/4 from above (from -X -Z), bottom right TOP (+Z at the bottom).")
 	# parts touching nothing: floating
 	var solids: Array = r.pieces.filter(func(pc): return not pc[2])
 	var detached := PackedStringArray()
@@ -692,17 +688,17 @@ func design(rec: Dictionary) -> Dictionary:
 			if not touches and solids[i][1].position.y > 0.01:
 				detached.append(solids[i][0])
 	if not detached.is_empty():
-		lines.append("STACCATI (sospesi in aria senza toccare nessun altro pezzo): " + ", ".join(detached))
+		lines.append("DETACHED (hanging in the air without touching any other part): " + ", ".join(detached))
 	if r.pieces.size() <= 40:
-		lines.append("Pezzi (ingombro da..a, in coordinate del modello):")
+		lines.append("Parts (extent from..to, in model coordinates):")
 		for pc in r.pieces:
 			var b: AABB = pc[1]
 			lines.append("  %s: %s .. %s" % [pc[0], _v(b.position), _v(b.end)])
 	if not r.warnings.is_empty():
-		lines.append("Avvisi:\n- " + "\n- ".join(r.warnings))
+		lines.append("Warnings:\n- " + "\n- ".join(r.warnings))
 	var style: PackedStringArray = r.get("style", PackedStringArray())
-	lines.append("Stile: ok (palette, numero di colori, dettaglio)." if style.is_empty() else "Stile (consigli, non blocca il salvataggio):\n- " + "\n- ".join(style))
-	lines.append("Se ti piace: save_model(name, description). Altrimenti correggi e riprova.")
+	lines.append("Style: ok (palette, number of colors, detail)." if style.is_empty() else "Style (advice, doesn't block saving):\n- " + "\n- ".join(style))
+	lines.append("If you like it: save_model(name, description). Otherwise fix it and try again.")
 	return {"ok": true, "text": "\n".join(lines), "sheet": sheet, "image": Marshalls.raw_to_base64(sheet.save_jpg_to_buffer(0.85))}
 
 

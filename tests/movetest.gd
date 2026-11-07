@@ -65,7 +65,7 @@ func _ready() -> void:
 	_out.append("short hop (Space tapped): height %.2f m" % (peak - y0))
 
 	# stairs: 10 steps of 0.2 m, walk up without jumping
-	World.run_script({"code": "extends Node3D\nfunc _ready():\n\tadd_child(Shapes.stairs(2, 2, 3.5, 10, \"legno\"))\n\tvar top := Shapes.box(Vector3(2, 2, 3), \"legno\")\n\ttop.position.z = -5\n\tadd_child(top)\n", "position": [0, 0, -4], "name": "scala"}, "player")
+	World.run_script({"code": "extends Node3D\nfunc _ready():\n\tadd_child(Shapes.stairs(2, 2, 3.5, 10, \"wood\"))\n\tvar top := Shapes.box(Vector3(2, 2, 3), \"wood\")\n\ttop.position.z = -5\n\tadd_child(top)\n", "position": [0, 0, -4], "name": "stairs"}, "player")
 	await get_tree().create_timer(0.3).timeout
 	player.global_position = Vector3(0, 0.1, -2)
 	await get_tree().create_timer(0.3).timeout
